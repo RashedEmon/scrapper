@@ -1,27 +1,29 @@
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
+from scrapy import settings
+from urllib.parse import quote_plus
+from .models import Base
+
+from scrapper.config import HOST, PORT, USERNAME, PASSWORD, DB_NAME
 
 class DatabaseManager:
-    _instance = None
-    _engine = None
-    _Session = None
+    def __init__(self):
+        self.engine = create_engine(
+                f'postgresql://{USERNAME}:{quote_plus(PASSWORD)}@'
+                f'{HOST}:{PORT}/{DB_NAME}'
+            )
+        self.Session = sessionmaker(bind=self.engine)
+        Base.metadata.create_all(bind=self.engine, checkfirst=True)
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._engine = create_engine('sqlite:///golf_courses.db', echo=True)  # Replace with your database URL
-            cls._instance._Session = sessionmaker(bind=cls._instance._engine)
-        return cls._instance
+    def get_session(self):
+        """get postgres session"""
 
-    @property
-    def session(self):
-        return self._Session()
+        return self.Session()
 
-    def close(self):
-        if self._engine:
-            self._engine.dispose()
-            self._engine = None
-            self._Session = None
-            DatabaseManager._instance = None
+    @staticmethod
+    def close_session(session):
+        """close postgres session"""
 
+        if session.is_active:
+            session.close()

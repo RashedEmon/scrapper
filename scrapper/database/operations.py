@@ -2,7 +2,7 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
 
-from connection import DatabaseManager
+from .connection import DatabaseManager
 
 
 class CommonDBOperation:
@@ -10,7 +10,7 @@ class CommonDBOperation:
         self.db_manager = DatabaseManager()
 
     def insert_or_ignore(self, model_class, data_dict):
-        session = self.db_manager.session
+        session = self.db_manager.get_session()
         try:
             instance = model_class(**data_dict)
             session.add(instance)
@@ -19,9 +19,3 @@ class CommonDBOperation:
             session.rollback()
         finally:
             session.close()
-
-# Example usage:
-# db_operations = CommonDBOperation()
-# data_dict = {'CourseName': 'Sample Course', 'City': 'Sample City', ...}
-# db_operations.insert_or_ignore(GolfCourse, data_dict)
-# DatabaseManager().close()

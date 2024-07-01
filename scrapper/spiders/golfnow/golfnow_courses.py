@@ -1,13 +1,12 @@
-import urllib.parse
 import scrapy
 from scrapy import spiders
-import urllib
-from bs4 import BeautifulSoup
-import requests
 import re
 from datetime import datetime
 import json
 from typing import Dict
+from scrapper.database.operations import CommonDBOperation
+from scrapper.database.models import GolfCourse
+from scrapper.database.pydantic_models import PydanticGolfCourse
 
 class CourseSpider(scrapy.Spider):
     name="golfnow_courses"
@@ -118,25 +117,44 @@ class CourseSpider(scrapy.Spider):
                 yield scrapy.Request(url=url+course_details_slug, method="GET", meta={"data": {**res.meta.get("data"), **data}}, callback=self.description_extractor)
     
     def description_extractor(self, res):
-        holes = res.css("p.course-stats>span.course-statistics-holes::text").get()
-        par = res.css("p.course-stats>span.course-statistics-par::text").get()
-        length = res.css("p.course-stats>span.course-statistics-length::text").get()
-        slope = res.css("p.course-stats>span.course-statistics-slope::text").get()
-        slope_rating = res.css("p.course-stats>span.course-statistics-rating::text").get()
+        data = res.meta.get("data")
         course_info_list = self.process_course_list(res.css("ul.course-info-list li::text").getall())
 
-        year_built = course_info_list.get('year_built')
-        greens = course_info_list.get('greens')
-        season = course_info_list.get('season')
-        fairways = course_info_list.get('fairways')
-        architects = course_info_list.get('architect(s)')
+        tee_details = []
+        if res.css('#course-details-chart'):
+            for tab_id in res.css('#course-details-chart > .course-tees-list>li>a::attr(id)').getall():
+                tee_type = res.css(f'#course-details-chart > .course-tees-list>li>a[id="{tab_id}"]::text').get()
+                table = res.css(f'#course-details-chart div#tab-{tab_id} table')
+                tee_details.append(self.html_table_to_dict(table=table, tee_type=tee_type))
 
-        description = res.css("div.description>p::text").get()
+        golf_course = {
+            "course_id": data.get("facility_id"),
+            "course_name": data.get("facility_name"),
+            "city": data.get("city"),
+            "state": data.get("state"),
+            "country": data.get("country"),
+            "latitude": data.get("latitude"),
+            "longitude": data.get("longitude"),
+            "address": self.build_address(res.meta.get('data', {}).get('address', {})),
+            "postal_code": data.get("address", {}).get("postalCode"),
+            "course_rating": str.strip(res.css('span.course-rating meta[itemprop="ratingValue"]::attr(content)').get('')) or None,
+            "number_of_holes": str.strip(res.css("p.course-stats>span.course-statistics-holes::text").get('')) or None,
+            "par": str.strip(res.css("p.course-stats>span.course-statistics-par::text").get('')) or None,
+            "yardage": str.strip(res.css("p.course-stats>span.course-statistics-length::text").get('')) or None,
+            "slope_rating": str.strip(res.css("p.course-stats>span.course-statistics-rating::text").get('')) or None,
+            "year_built": course_info_list.get('year_built'),
+            "greens": course_info_list.get('greens'),
+            "architect": course_info_list.get('architect(s)'),
+            "description": res.css("div.description>p::text").get(),
+            "images": str.join(",", res.css('ul#facility-images li img::attr(src)').getall()),
+            "tee_details": {"tee_details": tee_details} if tee_details else None,
+            "policies": str.join(",", res.css('#policies-info > div > h3:contains("Policies")+ul li::text').getall()),
+            "rental_services": str.join(",", res.css('#policies-info > div > h3:contains("Rentals/Services")+ul li::text').getall()),
+            "practice_instructions" : str.join(",", res.css('#policies-info > div > h3:contains("Practice/Instruction")+ul li::text').getall())
+        }
 
-        images = res.css('ul#facility-images li img::attr(src)').getall()
-
-        breakpoint()
-
+        valid_golf_course = PydanticGolfCourse(**golf_course)
+        CommonDBOperation().insert_or_ignore(model_class=GolfCourse,data_dict=valid_golf_course.model_dump())
 
 
     def process_course_list(self, data)-> Dict:
@@ -151,4 +169,30 @@ class CourseSpider(scrapy.Spider):
             converted_data[key] = value
 
         return converted_data
+    
+    def build_address(self, address):
+        address_string = ""
+        if address:
+            address_parts = [address['line1'], address['line2'], address['city'], address['stateProvinceCode'], address['postalCode'], address['country']]
+            address_string = ', '.join(part for part in address_parts if part)
+
+        return address_string
+    
+    def html_table_to_dict(self, table, tee_type):
+        headers = table.css('thead tr th::text').getall()
+
+        _dict = {
+            tee_type: []
+        }
+
+        for row in table.css('tbody tr'):
+            temp_dict = {}
+            for idx, item in enumerate(row.css('td::text').getall()):
+                temp_dict[headers[idx]] = item
+
+            _dict[tee_type].append(temp_dict)
+        return _dict
+
+
+
 

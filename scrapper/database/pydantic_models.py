@@ -1,6 +1,5 @@
-from pydantic import BaseModel, Json
-from typing import Optional
-from datetime import datetime
+from pydantic import BaseModel
+from typing import Optional, Dict
 
 class PydanticGolfCourse(BaseModel):
     course_id: int
@@ -19,7 +18,7 @@ class PydanticGolfCourse(BaseModel):
     architect: Optional[str] = None
     year_built: Optional[int] = None
     images: Optional[str] = None
-    tee_details: Optional[dict] = None
+    tee_details: Optional[str] = None
     policies: Optional[str] = None
     rental_services: Optional[str] = None
     practice_instructions: Optional[str] = None
@@ -29,3 +28,17 @@ class PydanticGolfCourse(BaseModel):
     class Config:
         orm_mode = True
 
+
+class PydanticTeeDetails(BaseModel):
+    course_id: int
+    tee_time_id: int
+    tee_datetime: str
+    display_rate: float
+    currency: str
+    display_fee_rate: Optional[bool] = None
+    max_transaction_fee: Optional[float] = None
+    hole_count: Optional[int] = None
+    rate_name: Optional[str] = None
+
+    class Config:
+        orm_mode = True

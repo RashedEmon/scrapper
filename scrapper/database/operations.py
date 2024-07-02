@@ -2,12 +2,12 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
 
-from .connection import DatabaseManager
+from .connection import DatabaseManager, RedShiftManager
 
 
 class CommonDBOperation:
     def __init__(self):
-        self.db_manager = DatabaseManager()
+        self.db_manager = RedShiftManager()
 
     def insert_or_ignore(self, model_class, data_dict):
         session = self.db_manager.get_session()

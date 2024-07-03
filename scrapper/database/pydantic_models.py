@@ -26,7 +26,7 @@ class PydanticGolfCourse(BaseModel):
     longitude: Optional[float] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class PydanticTeeDetails(BaseModel):
@@ -41,4 +41,4 @@ class PydanticTeeDetails(BaseModel):
     rate_name: Optional[str] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True

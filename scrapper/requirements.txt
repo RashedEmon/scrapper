@@ -1,5 +1,6 @@
-beautifulsoup4==4.12.3
 Scrapy==2.11.2
 SQLAlchemy==2.0.31
 psycopg2==2.9.9
 scrapy-user-agents==0.1.1
+redshift-connector==2.1.2
+sqlalchemy-redshift==0.8.14

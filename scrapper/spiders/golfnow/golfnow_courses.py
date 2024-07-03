@@ -133,9 +133,9 @@ class CourseSpider(scrapy.Spider):
             "postal_code": data.get("address", {}).get("postalCode"),
             "course_rating": str.strip(res.css('span.course-rating meta[itemprop="ratingValue"]::attr(content)').get('')) or None,
             "number_of_holes": str.strip(res.css("p.course-stats>span.course-statistics-holes::text").get('')) or None,
-            "par": str.strip(res.css("p.course-stats>span.course-statistics-par::text").get('')) or None,
-            "yardage": str.strip(res.css("p.course-stats>span.course-statistics-length::text").get('')) or None,
-            "slope_rating": str.strip(res.css("p.course-stats>span.course-statistics-rating::text").get('')) or None,
+            "par": res.css("p.course-stats>span.course-statistics-par").xpath('text()[normalize-space()]').get().strip() or None,
+            "yardage": self.get_first_numeric_word(res.css("p.course-stats>span.course-statistics-length").xpath('text()[normalize-space()]').get().strip()) or None,
+            "slope_rating": res.css("p.course-stats>span.course-statistics-rating").xpath('text()[normalize-space()]').get().strip() or None,
             "year_built": course_info_list.get('year_built'),
             "greens": course_info_list.get('greens'),
             "architect": course_info_list.get('architect(s)'),
@@ -265,3 +265,11 @@ class CourseSpider(scrapy.Spider):
             rows.append(temp_dict)
         
         return rows
+    
+    def get_first_numeric_word(self, text):
+        res = ""
+        first_numeric_word = re.search(r'^\s*(\d+)\b', text)
+        if first_numeric_word:
+            res = first_numeric_word.group(1)
+        
+        return res

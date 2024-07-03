@@ -57,7 +57,7 @@ ROBOTSTXT_OBEY = False
 DOWNLOADER_MIDDLEWARES = {
    'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
    'scrapy_user_agents.middlewares.RandomUserAgentMiddleware': 500,
-   "scrapper.middlewares.LogRequestHeadersMiddleware": 510,
+   "scrapper.middlewares.LogRequestHeadersMiddleware": None,
    "scrapper.middlewares.RandomProxyMiddleware": 501,
 }
 

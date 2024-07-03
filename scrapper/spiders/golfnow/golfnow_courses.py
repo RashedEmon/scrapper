@@ -136,7 +136,7 @@ class CourseSpider(scrapy.Spider):
             "par": res.css("p.course-stats>span.course-statistics-par").xpath('text()[normalize-space()]').get().strip() or None,
             "yardage": self.get_first_numeric_word(res.css("p.course-stats>span.course-statistics-length").xpath('text()[normalize-space()]').get().strip()) or None,
             "slope_rating": res.css("p.course-stats>span.course-statistics-rating").xpath('text()[normalize-space()]').get().strip() or None,
-            "year_built": course_info_list.get('year_built'),
+            "year_built": course_info_list.get('year_built').strip(),
             "greens": course_info_list.get('greens'),
             "architect": course_info_list.get('architect(s)'),
             "description": res.css("div.description>p::text").get(),
@@ -235,41 +235,45 @@ class CourseSpider(scrapy.Spider):
 
     def process_course_list(self, data)-> Dict:
         converted_data = {}
-        for item in data:
-            key, value = item.split(': ')
-            key = str.lower(key).strip().replace(' ', '_')
-            try:
-                value = int(value)
-            except ValueError:
-                pass
-            converted_data[key] = value
-
+        try:
+            for item in data:
+                key, value = item.split(': ')
+                key = str.lower(key).strip().replace(' ', '_')
+                converted_data[key] = value
+        except Exception as err:
+            print(err)
         return converted_data
     
     def build_address(self, address):
         address_string = ""
-        if address:
-            address_parts = [address['line1'], address['line2'], address['city'], address['stateProvinceCode'], address['postalCode'], address['country']]
-            address_string = ', '.join(part for part in address_parts if part)
-
+        try:
+            if address:
+                address_parts = [address['line1'], address['line2'], address['city'], address['stateProvinceCode'], address['postalCode'], address['country']]
+                address_string = ', '.join(part for part in address_parts if part)
+        except Exception as err:
+            print(err)
         return address_string
     
     def html_table_to_dict(self, table):
-        headers = table.css('thead tr th::text').getall()
         rows = []
-        for row in table.css('tbody tr'):
-            temp_dict = {}
-            for idx, item in enumerate(row.css('td::text').getall()):
-                temp_dict[headers[idx]] = item
+        try:
+            headers = table.css('thead tr th::text').getall()
+            for row in table.css('tbody tr'):
+                temp_dict = {}
+                for idx, item in enumerate(row.css('td::text').getall()):
+                    temp_dict[headers[idx]] = item
 
-            rows.append(temp_dict)
-        
+                rows.append(temp_dict)
+        except Exception as err:
+            print(err)
         return rows
     
     def get_first_numeric_word(self, text):
         res = ""
-        first_numeric_word = re.search(r'^\s*(\d+)\b', text)
-        if first_numeric_word:
-            res = first_numeric_word.group(1)
-        
+        try:
+            first_numeric_word = re.search(r'^\s*(\d+)\b', text)
+            if first_numeric_word:
+                res = first_numeric_word.group(1)
+        except Exception as err:
+            print(err)
         return res

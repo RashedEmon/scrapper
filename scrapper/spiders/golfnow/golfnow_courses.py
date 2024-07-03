@@ -5,7 +5,7 @@ from datetime import datetime
 import json
 from typing import Dict
 from scrapper.database.operations import CommonDBOperation
-from scrapper.database.models import GolfCourse
+from scrapper.database.models import GolfCourse, TeeTime
 from scrapper.database.pydantic_models import PydanticGolfCourse, PydanticTeeDetails
 
 class CourseSpider(scrapy.Spider):
@@ -230,7 +230,7 @@ class CourseSpider(scrapy.Spider):
         }
 
         valid_tee_details = PydanticTeeDetails(**tee_details)
-        
+        CommonDBOperation().insert_or_ignore(model_class=TeeTime, data_dict=valid_tee_details.model_dump())
         
 
     def process_course_list(self, data)-> Dict:

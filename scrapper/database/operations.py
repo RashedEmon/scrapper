@@ -2,7 +2,7 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
 
-from .connection import DatabaseManager, RedShiftManager
+from .connection import RedShiftManager
 
 
 class CommonDBOperation:

@@ -11,26 +11,26 @@ from .models import Base
 
 from scrapper import config
 
-class DatabaseManager:
-    def __init__(self):
-        self.engine = create_engine(
-                f'postgresql://{config.USERNAME}:{quote_plus(config.PASSWORD)}@'
-                f'{config.HOST}:{config.PORT}/{config.DB_NAME}'
-            )
-        self.Session = sessionmaker(bind=self.engine)
-        Base.metadata.create_all(bind=self.engine, checkfirst=True)
+# class DatabaseManager:
+#     def __init__(self):
+#         self.engine = create_engine(
+#                 f'postgresql://{config.USERNAME}:{quote_plus(config.PASSWORD)}@'
+#                 f'{config.HOST}:{config.PORT}/{config.DB_NAME}'
+#             )
+#         self.Session = sessionmaker(bind=self.engine)
+#         Base.metadata.create_all(bind=self.engine, checkfirst=True)
 
-    def get_session(self):
-        """get postgres session"""
+#     def get_session(self):
+#         """get postgres session"""
 
-        return self.Session()
+#         return self.Session()
 
-    @staticmethod
-    def close_session(session):
-        """close postgres session"""
+#     @staticmethod
+#     def close_session(session):
+#         """close postgres session"""
 
-        if session.is_active:
-            session.close()
+#         if session.is_active:
+#             session.close()
 
 
 class RedShiftManager:

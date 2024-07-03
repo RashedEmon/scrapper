@@ -7,6 +7,9 @@
 #     https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
 #     https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 
+import json
+from scrapper import config
+
 BOT_NAME = "scrapper"
 
 SPIDER_MODULES = ["scrapper.spiders"]
@@ -14,7 +17,7 @@ NEWSPIDER_MODULE = "scrapper.spiders"
 
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
-USER_AGENT = "Mozilla/5.0 (iPad; CPU OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"
+# USER_AGENT = "Mozilla/5.0 (iPad; CPU OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"
 
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = False
@@ -50,9 +53,12 @@ ROBOTSTXT_OBEY = False
 
 # Enable or disable downloader middlewares
 # See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
+# Lower value will execute first.
 DOWNLOADER_MIDDLEWARES = {
-   "scrapper.middlewares.ScrapperDownloaderMiddleware": 543,
-   "scrapper.middlewares.LogRequestHeadersMiddleware": 550,
+   'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
+   'scrapy_user_agents.middlewares.RandomUserAgentMiddleware': 500,
+   "scrapper.middlewares.LogRequestHeadersMiddleware": 510,
+   "scrapper.middlewares.RandomProxyMiddleware": 501,
 }
 
 # Enable or disable extensions
@@ -93,3 +99,13 @@ REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 FEED_EXPORT_ENCODING = "utf-8"
 # DEPTH_PRIORITY = 1
+
+# user_agents = []
+# with open("user_agent.json") as file: 
+#    user_agents = json.load(file)
+
+
+
+# USER_AGENT_LIST = user_agents
+
+PROXY_LIST = config.PROXY_LIST

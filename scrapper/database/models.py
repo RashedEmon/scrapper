@@ -35,8 +35,6 @@ class GolfCourse(Base):
     created_at = Column(TIMESTAMP, server_default=func.now(), nullable=False)
 
 
-    tee_times = relationship('TeeTime', back_populates='golf_course')
-
 
 class TeeTime(Base):
     __tablename__ = 'tee_times'
@@ -56,3 +54,5 @@ class TeeTime(Base):
     __table_args__ = (
         PrimaryKeyConstraint('course_id', 'tee_time_id'),
     )
+
+    golf_course = relationship('GolfCourse')

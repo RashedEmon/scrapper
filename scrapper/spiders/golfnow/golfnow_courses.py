@@ -146,7 +146,7 @@ class CourseSpider(scrapy.Spider):
             "rental_services": json.dumps({"rental_services": res.css('#policies-info > div > h3:contains("Rentals/Services")+ul li::text').getall()}),
             "practice_instructions" : json.dumps({"practice_instructions": res.css('#policies-info > div > h3:contains("Practice/Instruction")+ul li::text').getall()})
         }
-        breakpoint()
+
         valid_golf_course = PydanticGolfCourse(**golf_course)
         CommonDBOperation().insert_or_ignore(model_class=GolfCourse,data_dict=valid_golf_course.model_dump())
 

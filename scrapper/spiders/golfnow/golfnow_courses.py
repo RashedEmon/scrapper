@@ -132,7 +132,7 @@ class CourseSpider(scrapy.Spider):
             "address": self.build_address(res.meta.get('data', {}).get('address', {})),
             "postal_code": data.get("address", {}).get("postalCode"),
             "course_rating": str.strip(res.css('span.course-rating meta[itemprop="ratingValue"]::attr(content)').get('')) or None,
-            "number_of_holes": str.strip(res.css("p.course-stats>span.course-statistics-holes::text").get('')) or None,
+            "number_of_holes": res.css("p.course-stats>span.course-statistics-holes").xpath('text()[normalize-space()]').get().strip() or None,
             "par": res.css("p.course-stats>span.course-statistics-par").xpath('text()[normalize-space()]').get().strip() or None,
             "yardage": self.get_first_numeric_word(res.css("p.course-stats>span.course-statistics-length").xpath('text()[normalize-space()]').get().strip()) or None,
             "slope_rating": res.css("p.course-stats>span.course-statistics-rating").xpath('text()[normalize-space()]').get().strip() or None,
@@ -146,7 +146,7 @@ class CourseSpider(scrapy.Spider):
             "rental_services": json.dumps({"rental_services": res.css('#policies-info > div > h3:contains("Rentals/Services")+ul li::text').getall()}),
             "practice_instructions" : json.dumps({"practice_instructions": res.css('#policies-info > div > h3:contains("Practice/Instruction")+ul li::text').getall()})
         }
-
+        breakpoint()
         valid_golf_course = PydanticGolfCourse(**golf_course)
         CommonDBOperation().insert_or_ignore(model_class=GolfCourse,data_dict=valid_golf_course.model_dump())
 

@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DEBUG = eval(os.getenv("DEBUG"))
+DEBUG = eval(os.getenv("DEBUG", ""))
 
 # HOST = os.getenv("DB_HOST")
 # PORT = os.getenv("DB_PORT")
@@ -17,4 +17,4 @@ REDSHIFT_USER = os.getenv("REDSHIFT_USER")
 REDSHIFT_PASSWORD = os.getenv("REDSHIFT_PASSWORD")
 REDSHIFT_DB_NAME = os.getenv("REDSHIFT_DB_NAME")
 
-PROXY_LIST = os.getenv("PROXY_LIST").split(",")
+PROXY_LIST = os.getenv("PROXY_LIST", "").split(",")

@@ -1,4 +1,0 @@
-{
-    "detail_urls": "//div[@class='vertical-center']//a",
-    "title": "//h1[@class='city-name']/text()"
-}

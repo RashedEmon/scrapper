@@ -1,3 +1,6 @@
 .env
 __pycache__
 *.pid
+/build
+project.egg-info
+/setup.py

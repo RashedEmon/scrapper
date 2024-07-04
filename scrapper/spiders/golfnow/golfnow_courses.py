@@ -9,6 +9,7 @@ from scrapper.database.models import GolfCourse, TeeTime
 from scrapper.database.pydantic_models import PydanticGolfCourse, PydanticTeeDetails
 
 class CourseSpider(scrapy.Spider):
+    db_operation = CommonDBOperation()
     name="golfnow_courses"
     allowed_domain = ["www.golfnow.com"]
     start_urls = ["https://www.golfnow.com/destinations"]
@@ -148,7 +149,7 @@ class CourseSpider(scrapy.Spider):
         }
 
         valid_golf_course = PydanticGolfCourse(**golf_course)
-        CommonDBOperation().insert_or_ignore(model_class=GolfCourse,data_dict=valid_golf_course.model_dump())
+        self.db_operation.insert_or_ignore(model_class=GolfCourse,data_dict=valid_golf_course.model_dump())
 
 
         latitude=res.meta.get("data", {}).get("latitude")
@@ -230,7 +231,7 @@ class CourseSpider(scrapy.Spider):
         }
 
         valid_tee_details = PydanticTeeDetails(**tee_details)
-        CommonDBOperation().insert_or_ignore(model_class=TeeTime, data_dict=valid_tee_details.model_dump())
+        self.db_operation.insert_or_ignore(model_class=TeeTime, data_dict=valid_tee_details.model_dump())
         
 
     def process_course_list(self, data)-> Dict:

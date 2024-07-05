@@ -17,5 +17,3 @@ class CommonDBOperation:
             session.commit()
         except IntegrityError:
             session.rollback()
-        finally:
-            session.close()

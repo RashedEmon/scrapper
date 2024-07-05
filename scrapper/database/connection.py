@@ -1,7 +1,3 @@
-from sqlalchemy import create_engine, inspect
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.exc import IntegrityError
-from scrapy import settings
 from urllib.parse import quote_plus
 import sqlalchemy as sa
 from sqlalchemy.engine.url import URL

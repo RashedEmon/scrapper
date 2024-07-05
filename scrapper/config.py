@@ -1,9 +1,12 @@
+import ast
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-DEBUG = eval(os.getenv("DEBUG", ""))
+PROJECT_ROOT=os.path.dirname(os.path.abspath(__file__))
+
+DEBUG = ast.literal_eval(os.getenv("DEBUG", "False"))
 
 # HOST = os.getenv("DB_HOST")
 # PORT = os.getenv("DB_PORT")

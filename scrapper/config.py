@@ -2,17 +2,15 @@ import ast
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
-
 PROJECT_ROOT=os.path.dirname(os.path.abspath(__file__))
 
-DEBUG = ast.literal_eval(os.getenv("DEBUG", "False"))
+is_loaded = load_dotenv(dotenv_path=f"{PROJECT_ROOT}/.env")
 
-# HOST = os.getenv("DB_HOST")
-# PORT = os.getenv("DB_PORT")
-# USERNAME = os.getenv("DB_USERNAME")
-# PASSWORD = os.getenv("DB_PASSWORD")
-# DB_NAME = os.getenv("DB_NAME")
+if is_loaded:
+    raise Exception("No environment varibale set")
+
+
+DEBUG = ast.literal_eval(os.getenv("DEBUG", "False"))
 
 REDSHIFT_HOST = os.getenv("REDSHIFT_HOST")
 REDSHIFT_PORT = os.getenv("REDSHIFT_PORT")

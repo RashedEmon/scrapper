@@ -5,8 +5,8 @@ from datetime import datetime
 import json
 from typing import Dict
 from scrapper.database.operations import CommonDBOperation
-from scrapper.database.models import GolfCourse, TeeTime
-from scrapper.database.pydantic_models import PydanticGolfCourse, PydanticTeeDetails
+from scrapper.database.golfnow.models import GolfCourse, TeeTime
+from scrapper.database.golfnow.pydantic_models import PydanticGolfCourse, PydanticTeeDetails
 
 class CourseSpider(scrapy.Spider):
     name="golfnow_courses"

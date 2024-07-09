@@ -3,30 +3,9 @@ import sqlalchemy as sa
 from sqlalchemy.engine.url import URL
 from sqlalchemy import orm as sa_orm
 
-from .models import Base
+from .golfnow.models import Base
 
 from scrapper import config
-
-# class DatabaseManager:
-#     def __init__(self):
-#         self.engine = create_engine(
-#                 f'postgresql://{config.USERNAME}:{quote_plus(config.PASSWORD)}@'
-#                 f'{config.HOST}:{config.PORT}/{config.DB_NAME}'
-#             )
-#         self.Session = sessionmaker(bind=self.engine)
-#         Base.metadata.create_all(bind=self.engine, checkfirst=True)
-
-#     def get_session(self):
-#         """get postgres session"""
-
-#         return self.Session()
-
-#     @staticmethod
-#     def close_session(session):
-#         """close postgres session"""
-
-#         if session.is_active:
-#             session.close()
 
 
 class RedShiftManager:

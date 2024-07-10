@@ -34,3 +34,7 @@ class RedShiftManager:
     
     def get_session(self):
         return self.session
+    
+    def close(self):
+        if self.session:
+            self.session.close()

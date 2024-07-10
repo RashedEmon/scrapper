@@ -24,6 +24,8 @@ class Property(Base):
     facilities        = Column(SUPER)
     things_to_know    = Column(SUPER)
     host_id           = Column(INTEGER, ForeignKey('host.host_id'))
+    latitude          = Column(DOUBLE_PRECISION)
+    longitude         = Column(DOUBLE_PRECISION)
     updated_at        = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now(), nullable=False)
     created_at        = Column(TIMESTAMP, server_default=func.now(), nullable=False)
 

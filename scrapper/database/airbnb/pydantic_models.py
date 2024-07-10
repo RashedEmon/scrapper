@@ -19,6 +19,8 @@ class Property(BaseModel):
     facilities: Optional[dict] = None
     things_to_know: Optional[dict] = None
     host_id: Optional[int] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 class Host(BaseModel):
     host_id: int

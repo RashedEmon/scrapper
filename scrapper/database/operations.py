@@ -43,3 +43,6 @@ class CommonDBOperation:
             except IntegrityError:
                 self.session.rollback()
                 raise ValueError("Unable to insert new record due to integrity error")
+
+    def close(self):
+        self.db_manager.close()

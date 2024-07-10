@@ -6,7 +6,7 @@ PROJECT_ROOT=os.path.dirname(os.path.abspath(__file__))
 
 is_loaded = load_dotenv(dotenv_path=f"{PROJECT_ROOT}/.env")
 
-if is_loaded:
+if not is_loaded:
     raise Exception("No environment varibale set")
 
 

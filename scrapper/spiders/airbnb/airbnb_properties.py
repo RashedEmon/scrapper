@@ -2,6 +2,8 @@ import io
 import re
 import json
 import gzip
+import time
+import base64
 import jmespath
 import requests
 from lxml import etree
@@ -31,7 +33,7 @@ class AirbnbSpider(scrapy.Spider):
 
         },
         # "DEPTH_PRIORITY": 1,
-        # "CONCURRENT_REQUESTS": 1,
+        "CONCURRENT_REQUESTS": 8,
         # 'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleLifoDiskQueue',
         # 'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.LifoMemoryQueue',
     }
@@ -60,7 +62,6 @@ class AirbnbSpider(scrapy.Spider):
         with gzip.GzipFile(fileobj=io.BytesIO(response.body)) as f:
             sitemap_content = f.read()
 
-        
         root = etree.fromstring(sitemap_content)
         namespace = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
 
@@ -70,91 +71,182 @@ class AirbnbSpider(scrapy.Spider):
             yield scrapy.Request(url=loc.text, callback=self.parse_property_details)
     
     def parse_property_details(self, response):
+    
+        airbnb_x_api_key = self.get_airbnb_api_key(response)
 
+        property_id = response.url.split('/')[-1]
+        price = None
+        currency = "USD"
+        
+        # get available dates
+        valid_stay = self.get_available_valid_stay_date(airbnb_x_api_key, property_id)
+        if valid_stay:
+            price = self.find_property_price(airbnb_x_api_key=airbnb_x_api_key,property_id=property_id,check_in=valid_stay.get("check_in"),check_out=valid_stay.get("check_out"))
+            if price:
+                price = str.strip(price, "$")
+        
         try:
             details_dict = json.loads(response.css("#data-deferred-state-0::text").get())
         except Exception as err:
             print("parse_property_details => got error while parsing json from script tag.", str(err))
         
-        # Property specific selector
-        property_id = response.url.split('/')[-1]
-        
-        property_name_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='TITLE_DEFAULT'].section.title | [0]"
-        property_name = jmespath.search(expression=property_name_selector, data=details_dict)
-
-        property_desctiption_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='PDP_DESCRIPTION_MODAL'].section | [0].items[].html[].htmlText"
-        property_desctiption = jmespath.search(expression=property_desctiption_selector, data=details_dict)
-
-        property_facilities_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sbuiData.sectionConfiguration.root.sections[?sectionId=='OVERVIEW_DEFAULT_V2'].sectionData[] | [0].overviewItems[].title"
-        property_facilities = jmespath.search(expression=property_facilities_selector, data=details_dict)
-
-        property_review_count_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sbuiData.sectionConfiguration.root.sections[?sectionId=='OVERVIEW_DEFAULT_V2'].sectionData[] | [0].reviewData.reviewCount"
-        property_review_count = jmespath.search(expression=property_review_count_selector, data=details_dict)
-
-        property_rating_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sbuiData.sectionConfiguration.root.sections[?sectionId=='OVERVIEW_DEFAULT_V2'].sectionData[] | [0].reviewData.ratingText"
-        property_rating = jmespath.search(expression=property_rating_selector, data=details_dict)
-
-        property_detailed_review_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='REVIEWS_DEFAULT'].section | [0].ratings"
-        property_detailed_review = jmespath.search(expression=property_detailed_review_selector, data=details_dict)
-
-        room_arrangement_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='SLEEPING_ARRANGEMENT_DEFAULT'].section[].arrangementDetails[]"
-        room_arrangement = jmespath.search(expression=room_arrangement_selector, data=details_dict)
-
-        latitude_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='LOCATION_PDP'].section[].lat | [0]"
-        latitude = jmespath.search(expression=latitude_selector, data=details_dict)
-
-        longitude_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='LOCATION_PDP'].section[].lng | [0]"
-        longitude = jmespath.search(expression=longitude_selector, data=details_dict)
-
-        image_url_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='PHOTO_TOUR_SCROLLABLE'].section[].mediaItems[][].baseUrl"
-        images = jmespath.search(expression=image_url_selector, data=details_dict)
-
-        policies_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='POLICIES_DEFAULT'].section"
-        policies = jmespath.search(expression=policies_selector, data=details_dict)
-
-        amenities_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='AMENITIES_DEFAULT'].section | [0].seeAllAmenitiesGroups"
-        amenities = jmespath.search(expression=amenities_selector, data=details_dict)
-
         # Host specific selector
-
         host_name_seclector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='MEET_YOUR_HOST'].section.cardData.name | [0]"
-        host_name = jmespath.search(expression=host_name_seclector, data=details_dict)
-
         host_id_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='MEET_YOUR_HOST'].section.cardData.userId | [0]"
-        host_id = jmespath.search(expression=host_id_selector, data=details_dict)
-
         profile_image_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='MEET_YOUR_HOST'].section.cardData.profilePictureUrl | [0]"
-        profile_image = jmespath.search(expression=profile_image_selector, data=details_dict)
-
         is_super_host_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='MEET_YOUR_HOST'].section.cardData.isSuperhost | [0]"
-        is_super_host = jmespath.search(expression=is_super_host_selector, data=details_dict)
-
         is_verified_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='MEET_YOUR_HOST'].section.cardData.isVerified | [0]"
-        is_verified = jmespath.search(expression=is_verified_selector, data=details_dict)
-
         host_rating_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='MEET_YOUR_HOST'].section.cardData.stats | [0][?type=='RATING'].value | [0]"
-        host_rating = jmespath.search(expression=host_rating_selector, data=details_dict)
-
         host_review_count_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='MEET_YOUR_HOST'].section.cardData.stats | [0][?type=='REVIEW_COUNT'].value | [0]"
-        host_review_count = jmespath.search(expression=host_review_count_selector, data=details_dict)
-
         host_years_hosting_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='MEET_YOUR_HOST'].section.cardData.stats | [0][?type=='YEARS_HOSTING'].value | [0]"
-        host_years_hosting = jmespath.search(expression=host_years_hosting_selector, data=details_dict)
+        host_details_selector = 'niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType==`MEET_YOUR_HOST`].section.{"host_details": hostDetails} | [0]'
+        host_about_selector = 'niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType==`MEET_YOUR_HOST`].section.about | [0]'
+
+        host_items = {
+            "host_id": jmespath.search(expression=host_id_selector, data=details_dict),
+            "host_name": jmespath.search(expression=host_name_seclector, data=details_dict),
+            "number_of_reviews": jmespath.search(expression=host_review_count_selector, data=details_dict),
+            "rating": jmespath.search(expression=host_rating_selector, data=details_dict),
+            "years_hosting": jmespath.search(expression=host_years_hosting_selector, data=details_dict),
+            "profile_image": jmespath.search(expression=profile_image_selector, data=details_dict),
+            "is_super_host": jmespath.search(expression=is_super_host_selector, data=details_dict),
+            "is_verified": jmespath.search(expression=is_verified_selector, data=details_dict),
+            "host_details": jmespath.search(expression=host_details_selector, data=details_dict),
+            "about": jmespath.search(expression=host_about_selector, data=details_dict),
+        }
+
+        yield Host.model_construct(host_items)
+
+        # Property specific selector
+        property_name_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='TITLE_DEFAULT'].section.title | [0]"
+        property_desctiption_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='PDP_DESCRIPTION_MODAL'].section | [0].items[].html[].htmlText"
+        property_facilities_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sbuiData.sectionConfiguration.root.sections[?sectionId=='OVERVIEW_DEFAULT_V2'].sectionData[] | [0].overviewItems[].title"
+        property_review_count_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sbuiData.sectionConfiguration.root.sections[?sectionId=='OVERVIEW_DEFAULT_V2'].sectionData[] | [0].reviewData.reviewCount"
+        property_rating_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sbuiData.sectionConfiguration.root.sections[?sectionId=='OVERVIEW_DEFAULT_V2'].sectionData[] | [0].reviewData.ratingText"
+        property_detailed_review_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='REVIEWS_DEFAULT'].section | [0].ratings"
+        room_arrangement_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='SLEEPING_ARRANGEMENT_DEFAULT'].section[].arrangementDetails[]"
+        latitude_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='LOCATION_PDP'].section[].lat | [0]"
+        longitude_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='LOCATION_PDP'].section[].lng | [0]"
+        image_url_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='PHOTO_TOUR_SCROLLABLE'].section[].mediaItems[][].baseUrl"
+        policies_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='POLICIES_DEFAULT'].section"
+        amenities_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='AMENITIES_DEFAULT'].section | [0].seeAllAmenitiesGroups"
+        nearby_location_selector = 'niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType==`SEO_LINKS_DEFAULT`].section.nearbyCities[].{"title": title, "subtitle": subtitle}'
+        localtion_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType==`SEO_LINKS_DEFAULT`].section.breadcrumbs[].title | [1:]"
+
+        location = jmespath.search(expression=localtion_selector, data=details_dict)
+
+        property_dict = {
+            "property_id": property_id,
+            "property_name": jmespath.search(expression=property_name_selector, data=details_dict),
+            "property_desctiption": jmespath.search(expression=property_desctiption_selector, data=details_dict),
+            "facilities": jmespath.search(expression=property_facilities_selector, data=details_dict),
+            "number_of_reviews": jmespath.search(expression=property_review_count_selector, data=details_dict),
+            "property_rating": jmespath.search(expression=property_rating_selector, data=details_dict),
+            "detailed_review": jmespath.search(expression=property_detailed_review_selector, data=details_dict),
+            "room_arrangement": jmespath.search(expression=room_arrangement_selector, data=details_dict),
+            "latitude": jmespath.search(expression=latitude_selector, data=details_dict),
+            "longitude": jmespath.search(expression=longitude_selector, data=details_dict),
+            "images": jmespath.search(expression=image_url_selector, data=details_dict),
+            "policies": jmespath.search(expression=policies_selector, data=details_dict),
+            "amenities": jmespath.search(expression=amenities_selector, data=details_dict),
+            "currency_code": currency,
+            "price": price,
+            "host_id": host_items.get("host_id"),
+            "nearby_location": jmespath.search(expression=nearby_location_selector, data=details_dict),
+            "country": location[0] if len(location) >= 1 else None,
+            "city": location[1] if len(location) >= 2 else None,
+            "state": location[3] if len(location) >= 3 else None
+        }
+
+        # yield Property.model_construct(property_dict)
         
+        review_list = self.get_reviews(
+            property_id=property_id,
+            check_in=valid_stay.get("check_in"),
+            check_out=valid_stay.get("check_out"),
+            airbnb_x_api_key=airbnb_x_api_key
+        )
+
+        # for review in review_list:
+        #     yield Reviews.model_construct(review)
+        
+    
+    def get_airbnb_api_key(self, response):
         # get airbnb api key
         data_injector = json.loads(response.css("#data-injector-instances::text").get())
         airbnb_x_api_key = jmespath.search(data=data_injector, expression='"root > core-guest-spa"[]."layout-init".api_config.key | [0]')
         data_injector = {}
-
-        # get available dates
-        self.get_available_and_min_stay_dates(airbnb_x_api_key, property_id)
+        return airbnb_x_api_key
         
 
+    def get_reviews(self, property_id, check_in, check_out, airbnb_x_api_key):
+        url = "https://www.airbnb.com/api/v3/StaysPdpReviewsQuery/dec1c8061483e78373602047450322fd474e79ba9afa8d3dbbc27f504030f91d"
+        
+        def prepare_params(limit: int, offset: int):
+            return {
+                "operationName": "StaysPdpReviewsQuery",
+                "locale": "en",
+                "currency": "USD",
+                "variables": json.dumps({
+                    "id": base64.b64encode(f"StayListing:{property_id}".encode()).decode('utf-8'),
+                    "pdpReviewsRequest": {
+                        "fieldSelector": "for_p3_translation_only",
+                        "forPreview": False,
+                        "limit": limit,
+                        "offset": f"{offset}",
+                        "showingTranslationButton": False,
+                        "sortingPreference": "MOST_RECENT",
+                        "checkinDate": f"{check_in}",
+                        "checkoutDate": f"{check_out}",
+                        "numberOfAdults": "1",
+                        "numberOfChildren": "0",
+                        "numberOfInfants": "0",
+                        "numberOfPets": "0"
+                    }
+                }),
+                "extensions": json.dumps({
+                    "persistedQuery": {
+                        "version": 1,
+                        "sha256Hash": "dec1c8061483e78373602047450322fd474e79ba9afa8d3dbbc27f504030f91d"
+                    }
+                })
+            }
 
-        breakpoint()
+        headers = {
+            'X-Airbnb-API-Key': f'{airbnb_x_api_key}',
+        }
+        reviews_list = []
+        offset = 0
+        limit = 24
+        retry = 3
+        while retry > 0:
+            try:
+                response = requests.request("GET", url, headers=headers, params=prepare_params(limit=limit, offset=offset))
+                if response.status_code == 200:
+                    reviews_dict_list = jmespath.search(
+                        expression='data.presentation.stayProductDetailPage.reviews.reviews[].{"review_id": id, "comments": comments, "reviewer_name": reviewer.firstName, "profile_image_url": reviewer.pictureUrl, "review_date": localizedDate, "reviewer_location": localizedReviewerLocation, "rating": rating,'+f'"property_id": {property_id}'+'}',
+                        data=response.json()
+                    )
+                    reviews_list.extend(reviews_dict_list)
 
+                    offset+=limit
+                    reviews_count = jmespath.search(expression="data.presentation.stayProductDetailPage.reviews.metadata.reviewsCount", data=response.json())
+                    if offset >= reviews_count:
+                        break
+                    retry = 3
+                else:
+                    retry -= 1
 
-    def get_available_and_min_stay_dates(self, airbnb_x_api_key: str, property_id):
+                time.sleep(2)
+            except requests.RequestException as req_error:
+                print("get_reviews=>", str(req_error))
+                retry -= 1
+                time.sleep(1)
+        
+        return reviews_list
+        
+
+    def get_available_valid_stay_date(self, airbnb_x_api_key: str, property_id):
 
         url = "https://www.airbnb.com/api/v3/PdpAvailabilityCalendar/8f08e03c7bd16fcad3c92a3592c19a8b559a0d0855a84028d1163d4733ed9ade"
 
@@ -186,10 +278,118 @@ class AirbnbSpider(scrapy.Spider):
 
         response = requests.request("GET", url, headers=headers, params=params)
 
-        print(response.text)
-        breakpoint()
-
-        available_date_selector = 'data.merlin.pdpAvailabilityCalendar.calendarMonths[].days[?available == `true`].{"date": calendarDate, "available": available, "max_night": maxNights, "min_night": minNights} | []'
+        available_date_selector = 'data.merlin.pdpAvailabilityCalendar.calendarMonths[].days[?availableForCheckin == `true` || availableForCheckout==`true`].{"date": calendarDate, "available": available, "check_in": availableForCheckin, "check_out":availableForCheckout, "max_night": maxNights, "min_night": minNights} | []'
         available_dates = jmespath.search(expression=available_date_selector, data=response.json())
         
+        if available_dates:
+            valid_stay = self.find_valid_stay(available_dates)
+            return valid_stay
+        
+        return None
 
+
+
+
+    def find_valid_stay(self, data):
+        """
+        Find fiest valid stay from the given list.
+        First it will find a valid(where check_in='True') check in date and extract min and max nights.
+        Then Find valid check out date depends on the extracted min nights, max nights and check_out='True'.
+        It find first valid check_in and check out date pair.
+        """
+        for i, check_in_day in enumerate(data):
+            if check_in_day['check_in']:
+                check_in_date = datetime.strptime(check_in_day['date'], '%Y-%m-%d')
+                min_nights = check_in_day['min_night']
+                max_nights = check_in_day['max_night']
+
+                for j in range(i + 1, len(data)):
+                    check_out_day = data[j]
+                    check_out_date = datetime.strptime(check_out_day['date'], '%Y-%m-%d')
+                    nights = (check_out_date - check_in_date).days
+
+                    if check_out_day['check_out'] and min_nights <= nights <= max_nights:
+                        return {
+                            'check_in': check_in_day['date'],
+                            'check_out': check_out_day['date'],
+                            'nights': nights
+                        }
+        return None
+    
+
+    def find_property_price(self, airbnb_x_api_key, property_id, check_in, check_out):
+        url = "https://www.airbnb.com/api/v3/StaysPdpSections/80c7889b4b0027d99ffea830f6c0d4911a6e863a957cbe1044823f0fc746bf1f"
+
+        params = {
+            "operationName": "StaysPdpSections",
+            "locale": "en",
+            "currency": "USD",
+            "variables": json.dumps({
+                "id": base64.b64encode(f"StayListing:{property_id}".encode()).decode('utf-8'),
+                "pdpSectionsRequest": {
+                    "adults": "1",
+                    "amenityFilters": None,
+                    "bypassTargetings": False,
+                    "categoryTag": None,
+                    "causeId": None,
+                    "children": None,
+                    "disasterId": None,
+                    "discountedGuestFeeVersion": None,
+                    "displayExtensions": None,
+                    "federatedSearchId": None,
+                    "forceBoostPriorityMessageType": None,
+                    "infants": None,
+                    "interactionType": None,
+                    "layouts": ["SIDEBAR", "SINGLE_COLUMN"],
+                    "pets": 0,
+                    "pdpTypeOverride": None,
+                    "photoId": None,
+                    "preview": False,
+                    "previousStateCheckIn": None,
+                    "previousStateCheckOut": None,
+                    "priceDropSource": None,
+                    "privateBooking": False,
+                    "promotionUuid": None,
+                    "relaxedAmenityIds": None,
+                    "searchId": None,
+                    "selectedCancellationPolicyId": None,
+                    "selectedRatePlanId": None,
+                    "splitStays": None,
+                    "staysBookingMigrationEnabled": False,
+                    "translateUgc": None,
+                    "useNewSectionWrapperApi": False,
+                    "sectionIds": [
+                        "BOOK_IT_CALENDAR_SHEET",
+                        "CANCELLATION_POLICY_PICKER_MODAL",
+                        "BOOK_IT_FLOATING_FOOTER",
+                        "POLICIES_DEFAULT",
+                        "EDUCATION_FOOTER_BANNER_MODAL",
+                        "BOOK_IT_SIDEBAR",
+                        "URGENCY_COMMITMENT_SIDEBAR",
+                        "BOOK_IT_NAV",
+                        "MESSAGE_BANNER",
+                        "HIGHLIGHTS_DEFAULT",
+                        "EDUCATION_FOOTER_BANNER",
+                        "URGENCY_COMMITMENT"
+                    ],
+                    "checkIn": f"{check_in}",
+                    "checkOut": f"{check_out}"
+                }
+            }),
+            "extensions": json.dumps({
+                "persistedQuery": {
+                    "version": 1,
+                    "sha256Hash": "80c7889b4b0027d99ffea830f6c0d4911a6e863a957cbe1044823f0fc746bf1f"
+                }
+            })
+        }
+
+        headers = {
+            'X-Airbnb-API-Key': f'{airbnb_x_api_key}',
+        }
+
+        response = requests.request("GET", url, headers=headers, params=params)
+        price_selector = "data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType==`BOOK_IT_FLOATING_FOOTER`].section.structuredDisplayPrice.explanationData.priceDetails[0].items[0].priceString | [0]"
+        price = jmespath.search(expression=price_selector, data=response.json())
+
+        return price

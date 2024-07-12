@@ -8,16 +8,13 @@ import jmespath
 import requests
 from lxml import etree
 from datetime import datetime
+from typing import Dict, List
 
 import scrapy
 from scrapy import spiders
 
 from scrapper.config import PROJECT_ROOT
-from scrapper.database.airbnb.pydantic_models import Property, Reviews, Host
-
-key_selector_mapping = {
-    "images": "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='PHOTO_TOUR_SCROLLABLE'].section[].mediaItems[][].baseUrl",
-}
+from scrapper.database.airbnb.pydantic_models import Property, Review, Host
 
 
 class AirbnbSpider(scrapy.Spider):
@@ -26,17 +23,23 @@ class AirbnbSpider(scrapy.Spider):
     start_urls = ["https://www.airbnb.com/sitemap-master-index.xml.gz"]
 
     custom_settings = {
-        "ITEM_PIPELINES": {
-            "scrapper.pipelines.MultiModelValidationPipeline": 300,
-        },
-        "DOWNLOADER_MIDDLEWARES": {
+            "ITEM_PIPELINES": {
+                "scrapper.pipelines.MultiModelValidationPipeline": 300,
+            },
+            "DOWNLOADER_MIDDLEWARES": {
+                "scrapper.middlewares.LogRequestMiddleware": 510,
+                "scrapper.middlewares.RandomProxyMiddleware": 500,
+            },
+            # "DEPTH_PRIORITY": 1,
+            "CONCURRENT_REQUESTS": 8,
+            # 'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleLifoDiskQueue',
+            # 'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.LifoMemoryQueue',
+        }
 
-        },
-        # "DEPTH_PRIORITY": 1,
-        "CONCURRENT_REQUESTS": 8,
-        # 'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleLifoDiskQueue',
-        # 'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.LifoMemoryQueue',
-    }
+    @classmethod
+    def update_settings(cls, settings):
+        super().update_settings(settings)
+        settings.set(name="JOBDIR", value=f"{PROJECT_ROOT}/spiders_logs/{cls.name}", priority="spider")
 
     def __init__(self, name: str | None = None, **kwargs: spiders.Any):
         super().__init__(name, **kwargs)
@@ -82,8 +85,8 @@ class AirbnbSpider(scrapy.Spider):
         valid_stay = self.get_available_valid_stay_date(airbnb_x_api_key, property_id)
         if valid_stay:
             price = self.find_property_price(airbnb_x_api_key=airbnb_x_api_key,property_id=property_id,check_in=valid_stay.get("check_in"),check_out=valid_stay.get("check_out"))
-            if price:
-                price = str.strip(price, "$")
+            if price and isinstance(price, str):
+                price = str.strip(price, "$").replace(',', '')
         
         try:
             details_dict = json.loads(response.css("#data-deferred-state-0::text").get())
@@ -102,8 +105,18 @@ class AirbnbSpider(scrapy.Spider):
         host_details_selector = 'niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType==`MEET_YOUR_HOST`].section.{"host_details": hostDetails} | [0]'
         host_about_selector = 'niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType==`MEET_YOUR_HOST`].section.about | [0]'
 
+        def get_host_id():
+            _host_id = None
+            try:
+                encoded_host_id = jmespath.search(expression=host_id_selector, data=details_dict)
+                if encoded_host_id:
+                    _host_id = base64.b64decode(encoded_host_id.encode('utf-8')).decode('utf-8').split(":")[-1]
+            except Exception as err:
+                print(err)
+            return _host_id
+
         host_items = {
-            "host_id": jmespath.search(expression=host_id_selector, data=details_dict),
+            "host_id": get_host_id(),
             "host_name": jmespath.search(expression=host_name_seclector, data=details_dict),
             "number_of_reviews": jmespath.search(expression=host_review_count_selector, data=details_dict),
             "rating": jmespath.search(expression=host_rating_selector, data=details_dict),
@@ -115,7 +128,8 @@ class AirbnbSpider(scrapy.Spider):
             "about": jmespath.search(expression=host_about_selector, data=details_dict),
         }
 
-        yield Host.model_construct(host_items)
+        valid_host = Host.model_construct(**host_items)
+        yield valid_host
 
         # Property specific selector
         property_name_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='TITLE_DEFAULT'].section.title | [0]"
@@ -123,13 +137,13 @@ class AirbnbSpider(scrapy.Spider):
         property_facilities_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sbuiData.sectionConfiguration.root.sections[?sectionId=='OVERVIEW_DEFAULT_V2'].sectionData[] | [0].overviewItems[].title"
         property_review_count_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sbuiData.sectionConfiguration.root.sections[?sectionId=='OVERVIEW_DEFAULT_V2'].sectionData[] | [0].reviewData.reviewCount"
         property_rating_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sbuiData.sectionConfiguration.root.sections[?sectionId=='OVERVIEW_DEFAULT_V2'].sectionData[] | [0].reviewData.ratingText"
-        property_detailed_review_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='REVIEWS_DEFAULT'].section | [0].ratings"
-        room_arrangement_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='SLEEPING_ARRANGEMENT_DEFAULT'].section[].arrangementDetails[]"
+        property_detailed_review_selector = 'niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType==`REVIEWS_DEFAULT`].section | [0].ratings[].{"label": label, "rating": localizedRating}'
+        room_arrangement_selector = 'niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType==`SLEEPING_ARRANGEMENT_DEFAULT`].section[].arrangementDetails[]'
         latitude_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='LOCATION_PDP'].section[].lat | [0]"
         longitude_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='LOCATION_PDP'].section[].lng | [0]"
         image_url_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='PHOTO_TOUR_SCROLLABLE'].section[].mediaItems[][].baseUrl"
         policies_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='POLICIES_DEFAULT'].section"
-        amenities_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='AMENITIES_DEFAULT'].section | [0].seeAllAmenitiesGroups"
+        amenities_selector = 'niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType==`AMENITIES_DEFAULT`].section | [0].seeAllAmenitiesGroups[].{"title": title, "amenities": amenities[].{"available": available, "title": title, "subtitle": subtitle}}'
         nearby_location_selector = 'niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType==`SEO_LINKS_DEFAULT`].section.nearbyCities[].{"title": title, "subtitle": subtitle}'
         localtion_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType==`SEO_LINKS_DEFAULT`].section.breadcrumbs[].title | [1:]"
 
@@ -154,11 +168,12 @@ class AirbnbSpider(scrapy.Spider):
             "host_id": host_items.get("host_id"),
             "nearby_location": jmespath.search(expression=nearby_location_selector, data=details_dict),
             "country": location[0] if len(location) >= 1 else None,
-            "city": location[1] if len(location) >= 2 else None,
-            "state": location[3] if len(location) >= 3 else None
+            "state": location[1] if len(location) >= 2 else None,
+            "city": location[-1] if len(location) >= 3 else None
         }
 
-        # yield Property.model_construct(property_dict)
+        valid_property = Property.model_construct(**property_dict)
+        yield valid_property
         
         review_list = self.get_reviews(
             property_id=property_id,
@@ -167,9 +182,10 @@ class AirbnbSpider(scrapy.Spider):
             airbnb_x_api_key=airbnb_x_api_key
         )
 
-        # for review in review_list:
-        #     yield Reviews.model_construct(review)
-        
+        for review in review_list:
+            review.update(property_id=property_id)
+            yield Review.model_construct(**review)
+
     
     def get_airbnb_api_key(self, response):
         # get airbnb api key
@@ -179,7 +195,7 @@ class AirbnbSpider(scrapy.Spider):
         return airbnb_x_api_key
         
 
-    def get_reviews(self, property_id, check_in, check_out, airbnb_x_api_key):
+    def get_reviews(self, property_id, check_in, check_out, airbnb_x_api_key) -> List[Dict]:
         url = "https://www.airbnb.com/api/v3/StaysPdpReviewsQuery/dec1c8061483e78373602047450322fd474e79ba9afa8d3dbbc27f504030f91d"
         
         def prepare_params(limit: int, offset: int):
@@ -224,7 +240,7 @@ class AirbnbSpider(scrapy.Spider):
                 response = requests.request("GET", url, headers=headers, params=prepare_params(limit=limit, offset=offset))
                 if response.status_code == 200:
                     reviews_dict_list = jmespath.search(
-                        expression='data.presentation.stayProductDetailPage.reviews.reviews[].{"review_id": id, "comments": comments, "reviewer_name": reviewer.firstName, "profile_image_url": reviewer.pictureUrl, "review_date": localizedDate, "reviewer_location": localizedReviewerLocation, "rating": rating,'+f'"property_id": {property_id}'+'}',
+                        expression='data.presentation.stayProductDetailPage.reviews.reviews[].{"review_id": id, "comments": comments, "reviewer_name": reviewer.firstName, "profile_image_url": reviewer.pictureUrl, "review_date": createdAt, "reviewer_location": localizedReviewerLocation, "rating": rating, "language": language}',
                         data=response.json()
                     )
                     reviews_list.extend(reviews_dict_list)
@@ -271,9 +287,9 @@ class AirbnbSpider(scrapy.Spider):
         }
 
         headers = {
-        'Content-Type': 'application/json',
-        'Accept': '*/*',
-        'X-Airbnb-API-Key': airbnb_x_api_key,
+            'Content-Type': 'application/json',
+            'Accept': '*/*',
+            'X-Airbnb-API-Key': airbnb_x_api_key,
         }
 
         response = requests.request("GET", url, headers=headers, params=params)

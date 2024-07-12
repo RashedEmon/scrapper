@@ -5,30 +5,33 @@
 
 
 # useful for handling different item types with a single interface
+import json
 
 from pydantic import ValidationError
 from scrapy.exceptions import DropItem
 
+from scrapper.config import PROJECT_ROOT
 from scrapper.database.operations import CommonDBOperation
-from scrapper.database.airbnb.pydantic_models import Property, Reviews, Host
-
-
+from scrapper.database.airbnb.pydantic_models import Property, Review, Host
+from scrapper.database.airbnb.models import PropertyModel, ReviewsModel, HostsModel
 
 class MultiModelValidationPipeline:
 
     def open_spider(self, spider):
-        pass
-        # self.db = CommonDBOperation()
+        self.buffer_size = 5
+        self.review_list = []
+        self.property_list = []
+        self.host_list = []
+
+        self.db = CommonDBOperation()
 
     def close_spider(self, spider):
-        pass
-        # self.db.close()
+        self.db.close()
 
     def process_item(self, item, spider):
-        print(f"processing an item (type: {type(item)}")
         if isinstance(item, Property):
             return self.process_property(item)
-        elif isinstance(item, Reviews):
+        elif isinstance(item, Review):
             return self.process_review(item)
         elif isinstance(item, Host):
             return self.process_host(item)
@@ -38,20 +41,41 @@ class MultiModelValidationPipeline:
     def process_property(self, item: Property):
         try:
             validated_item = Property(**item.model_dump())
-            return dict(validated_item)
+
+            self.property_list.append(validated_item.model_dump())
+            if self.property_list >= self.buffer_size:
+                self.db.upsert_rows(
+                    model=PropertyModel,
+                    data=self.property_list,
+                    unique_columns=[PropertyModel.property_id.__str__()]
+                )
         except ValidationError as e:
             raise DropItem(f"Invalid product: {e}")
 
-    def process_review(self, item):
+    def process_review(self, item: Review):
         try:
-            validated_item = Reviews(**item.dict())
-            return dict(validated_item)
+            validated_item = Review(**item.model_dump())
+
+            self.review_list.append(validated_item.model_dump())
+            if self.review_list >= self.buffer_size:
+                self.db.upsert_rows(
+                    model=ReviewsModel,
+                    data=self.review_list,
+                    unique_columns=[ReviewsModel.review_id.__str__()]
+                )
         except ValidationError as e:
             raise DropItem(f"Invalid review: {e}")
     
-    def process_host(self, item):
+    def process_host(self, item: Host):
         try:
-            validated_item = Host(**item.dict())
-            return dict(validated_item)
+            validated_item = Host(**item.model_dump())
+            
+            self.host_list.append(validated_item.model_dump())
+            if self.host_list >= self.buffer_size:
+                self.db.upsert_rows(
+                    model=HostsModel,
+                    data=self.host_list,
+                    unique_columns=[HostsModel.host_id.__str__()]
+                )
         except ValidationError as e:
             raise DropItem(f"Invalid review: {e}")

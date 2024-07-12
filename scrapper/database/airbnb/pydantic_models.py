@@ -1,6 +1,8 @@
-from pydantic import BaseModel, Field
-from typing import Optional
+import dateutil.parser
+from pydantic import BaseModel, Field, Json, field_validator
+from typing import Optional, Dict, List, Any
 from datetime import datetime
+import dateutil
 
 
 class Property(BaseModel):
@@ -9,22 +11,22 @@ class Property(BaseModel):
     country: Optional[str] = Field(None, max_length=50)
     state: Optional[str] = Field(None, max_length=50)
     city: Optional[str] = Field(None, max_length=50)
-    amenities: Optional[str] = Field(None, max_length=50)
-    room_arrangement: Optional[str] = None
+    amenities: Optional[List[Dict[str, Any]]]
+    room_arrangement: Optional[List[Dict[str, Any]]] = None
     rating: Optional[float] = None
-    detailed_review: Optional[dict] = None
+    detailed_review: Optional[List[Any]] = None
     number_of_reviews: Optional[int] = None
-    images: Optional[str] = Field(None, max_length=64000)
+    images: Optional[List[str]] = None
     price: Optional[float] = None
     currency_code: Optional[str] = Field(None, max_length=5)
-    facilities: Optional[dict] = None
-    policies: Optional[dict] = None
-    host_id: Optional[int] = None
+    facilities: Optional[List[str]] = None
+    policies: Optional[List[Any]] = None
+    host_id: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
 
 class Host(BaseModel):
-    host_id: int
+    host_id: str
     host_name: Optional[str] = Field(None, max_length=50)
     number_of_reviews: Optional[int] = None
     rating: Optional[float] = None
@@ -35,12 +37,20 @@ class Host(BaseModel):
     about: Optional[str] = Field(None, max_length=64000)
     host_details: Optional[dict] = Field(None, max_length=50)
 
-class Reviews(BaseModel):
-    property_id: int
+class Review(BaseModel):
+    property_id: str
     review_id: str = Field(..., max_length=100)
     reviewer_name: Optional[str] = Field(None, max_length=50)
     comments: Optional[str] = Field(None, max_length=64000)
-    profile_image_url: Optional[str] = Field(None, max_length=100)
+    profile_image_url: Optional[str] = Field(None, max_length=1000)
     review_date: Optional[datetime] = None
     reviewer_location: Optional[str] = None
     rating: Optional[float] = None
+    language: Optional[str] = None
+
+    @field_validator('review_date')
+    @classmethod
+    def parse_date(cls, value):
+        if isinstance(value, str):
+            return dateutil.parser.isoparse(value)
+        return value

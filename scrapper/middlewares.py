@@ -13,7 +13,6 @@ from scrapy.exceptions import IgnoreRequest
 
 from scrapper.database.operations import CommonDBOperation
 from scrapper.database.airbnb.models import RequestTracker
-from scrapper.database.connection import RedShiftManager
 
 class LogRequestHeadersMiddleware:
     @classmethod
@@ -75,21 +74,21 @@ class LogRequestMiddleware:
                 columns=[RequestTracker.url],
                 query_filter=query_filter
             )
-
+            
             if exist:
                 raise IgnoreRequest
             
         return None
 
     def process_response(self, request, response, spider):
-        if self.pattern.match(response.url):
-            self.db.insert_or_update(
-                model_class=RequestTracker,
-                data_dict={
-                    "url": response.url,
-                    "status_code": response.status,
-                }
-            )
+        self.db.insert_or_update(
+            model_class=RequestTracker,
+            data_dict={
+                "url": response.url,
+                "status_code": response.status,
+                "method": request.method
+            }
+        )
         return response
 
     def spider_opened(self, spider):

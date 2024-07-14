@@ -17,8 +17,8 @@ cd project_root
 
 ### Create and activate virtual environment
 ```shell
-python -m venv .env
-source .env/bin/activate
+python -m venv .travel_ai_scrapper
+source .travel_ai_scrapper/bin/activate
 ```
 #### Install requires libraries
 ```shell

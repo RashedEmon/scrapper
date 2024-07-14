@@ -2,7 +2,6 @@ from sqlalchemy.dialects.postgresql import insert
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy import exists
 
 from .connection import RedShiftManager
 
@@ -20,7 +19,9 @@ class CommonDBOperation:
         except IntegrityError:
             session.rollback()
 
-    def insert_or_update(self, model_class, data_dict):
+    def insert_or_update(self, model_class, data_dict: dict):
+        session = self.db_manager.get_session()
+
         primary_keys = [key.name for key in model_class.__table__.primary_key]
         pk_values = {pk: data_dict.get(pk) for pk in primary_keys}
         
@@ -28,20 +29,20 @@ class CommonDBOperation:
             raise ValueError("All primary key values must be provided")
     
         try:
-            existing_record = self.session.query(model_class).filter_by(**pk_values).one()
+            existing_record = session.query(model_class).filter_by(**pk_values).one()
             
             for key, value in data_dict.items():
                 setattr(existing_record, key, value)
             
-            self.session.commit()
+            session.commit()
             return existing_record, False
         
         except NoResultFound:
             new_record = model_class(**data_dict)
-            self.session.add(new_record)
+            session.add(new_record)
             
             try:
-                self.session.commit()
+                session.commit()
                 return new_record, True
             except IntegrityError:
                 self.session.rollback()
@@ -52,10 +53,8 @@ class CommonDBOperation:
         session = self.db_manager.get_session()
         table = model.__table__
 
-        # Create the insert statement
         stmt = insert(table).values(data)
 
-        # Add ON CONFLICT clause for upsert behavior
         update_dict = {c.name: c for c in stmt.excluded if c.name not in unique_columns}
         stmt = stmt.on_conflict_do_update(
             index_elements=unique_columns,

@@ -2,13 +2,16 @@ from urllib.parse import quote_plus
 import sqlalchemy as sa
 from sqlalchemy.engine.url import URL
 from sqlalchemy import orm as sa_orm
-
-from .golfnow.models import Base
+from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
 
 from scrapper import config
 
+Base = declarative_base()
 
 class RedShiftManager:
+    
+    count = 0
+
     def __init__(self) -> None:
         query = {}
         if config.DEBUG:
@@ -26,14 +29,22 @@ class RedShiftManager:
             query=query
         )
         self.engine = sa.create_engine(url)
-        Session = sa_orm.sessionmaker()
-        Session.configure(bind=self.engine)
-        self.session = Session()
+        self.SessionFactory = sa_orm.sessionmaker()
+        self.SessionFactory.configure(bind=self.engine)
+        self.session = self.SessionFactory()
         metadata = sa.MetaData(bind=self.session.bind)
         Base.metadata.create_all(bind=self.engine, checkfirst=True)
     
     def get_session(self):
+        self.count+=1
+        if self.count >= 1000:
+            self.count = 0
+            return self.SessionFactory()
+
         return self.session
+
+    def get_new_session(self):
+        return self.SessionFactory()
     
     def close(self):
         if self.session:

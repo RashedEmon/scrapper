@@ -1,5 +1,6 @@
 .env
 .travelai_scrapper
+.travel_ai_scrapper
 __pycache__
 *.pid
 /build

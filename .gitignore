@@ -5,7 +5,6 @@ __pycache__
 *.pid
 /build
 project.egg-info
-/setup.py
 dist
 build
 spiders_logs/

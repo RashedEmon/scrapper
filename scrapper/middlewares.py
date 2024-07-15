@@ -60,8 +60,7 @@ class LogRequestMiddleware:
         return middleware
 
     def process_request(self, request, spider):
-        
-        if self.pattern.match(request.url):
+        if request.url not in ["https://www.airbnb.com/sitemap-master-index.xml.gz"]:
             query_filter = [
                 alchemy.and_(
                         RequestTracker.url == request.url,
@@ -90,7 +89,6 @@ class LogRequestMiddleware:
         return response
 
     def spider_opened(self, spider):
-        self.pattern = re.compile(r'^(https://)?www\.airbnb\.com/rooms/\d+$')
         self.db = CommonDBOperation()
     
     def spider_closed(self, spider):

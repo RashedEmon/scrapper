@@ -7,7 +7,7 @@ import base64
 import jmespath
 import requests
 from lxml import etree
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List
 
 import scrapy
@@ -176,8 +176,8 @@ class AirbnbSpider(scrapy.Spider):
         
         review_list = self.get_reviews(
             property_id=property_id,
-            check_in=valid_stay.get("check_in"),
-            check_out=valid_stay.get("check_out"),
+            check_in=valid_stay.get("check_in", datetime.now().strftime("%Y-%m-%d")),
+            check_out=valid_stay.get("check_out", (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")),
             airbnb_x_api_key=airbnb_x_api_key
         )
 

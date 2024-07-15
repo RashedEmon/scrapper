@@ -18,7 +18,7 @@ from scrapper.database.airbnb.models import PropertyModel, ReviewsModel, HostsMo
 class MultiModelValidationPipeline:
 
     def open_spider(self, spider):
-        self.buffer_size = 5
+        self.buffer_size = 10
         self.review_list = []
         self.property_list = []
         self.host_list = []

@@ -8,3 +8,4 @@ dist
 build
 spiders_logs/
 config.json
+travelai_scrapper.egg-info

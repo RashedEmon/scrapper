@@ -23,4 +23,8 @@ setup(
     packages         = find_packages(),
     install_requires = read_requirements(),
     entry_points     = {'scrapy': ['settings = scrapper.settings']},
+    package_data={
+        'scrapper': ['*.json'],
+    },
+    include_package_data=True,
 )

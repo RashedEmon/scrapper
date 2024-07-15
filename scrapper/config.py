@@ -1,21 +1,24 @@
-import ast
 import os
-from dotenv import load_dotenv
+import json
+
 
 PROJECT_ROOT=os.path.dirname(os.path.abspath(__file__))
 
-is_loaded = load_dotenv(dotenv_path=f"{PROJECT_ROOT}/.env")
+CONFIG_PATH = os.path.join(PROJECT_ROOT, 'config.json')
 
-if not is_loaded:
-    raise Exception("No environment varibale set")
+if not os.path.exists(CONFIG_PATH):
+    raise Exception("No configuration file found")
+
+with open(CONFIG_PATH, 'r') as f:
+    config = json.load(f)
 
 
-DEBUG = ast.literal_eval(os.getenv("DEBUG", "False"))
+DEBUG = config.get("DEBUG", False)
 
-REDSHIFT_HOST = os.getenv("REDSHIFT_HOST")
-REDSHIFT_PORT = os.getenv("REDSHIFT_PORT")
-REDSHIFT_USER = os.getenv("REDSHIFT_USER")
-REDSHIFT_PASSWORD = os.getenv("REDSHIFT_PASSWORD")
-REDSHIFT_DB_NAME = os.getenv("REDSHIFT_DB_NAME")
+REDSHIFT_HOST = config.get("REDSHIFT_HOST")
+REDSHIFT_PORT = config.get("REDSHIFT_PORT")
+REDSHIFT_USER = config.get("REDSHIFT_USER")
+REDSHIFT_PASSWORD = config.get("REDSHIFT_PASSWORD")
+REDSHIFT_DB_NAME = config.get("REDSHIFT_DB_NAME")
 
-PROXY_LIST = os.getenv("PROXY_LIST", "").split(",")
+PROXY_LIST = config.get("PROXY_LIST", [])

@@ -1,4 +1,3 @@
-.env
 .travelai_scrapper
 .travel_ai_scrapper
 __pycache__
@@ -8,3 +7,4 @@ project.egg-info
 dist
 build
 spiders_logs/
+config.json

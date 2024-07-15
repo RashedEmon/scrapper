@@ -39,7 +39,7 @@ class AirbnbSpider(scrapy.Spider):
     @classmethod
     def update_settings(cls, settings):
         super().update_settings(settings)
-        settings.set(name="JOBDIR", value=f"{PROJECT_ROOT}/spiders_logs/{cls.name}", priority="spider")
+        settings.set(name="JOBDIR", value=f"{PROJECT_ROOT}/spiders_logs/{cls.name}_job_dir", priority="spider")
 
     def __init__(self, name: str | None = None, **kwargs: spiders.Any):
         super().__init__(name, **kwargs)

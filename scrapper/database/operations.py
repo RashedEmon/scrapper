@@ -1,4 +1,5 @@
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import insert, select, and_
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
@@ -52,24 +53,33 @@ class CommonDBOperation:
         res = False
         session = self.db_manager.get_session()
         table = model.__table__
-
-        stmt = insert(table).values(data)
-
-        update_dict = {c.name: c for c in stmt.excluded if c.name not in unique_columns}
-        stmt = stmt.on_conflict_do_update(
-            index_elements=unique_columns,
-            set_=update_dict
-        )
-
+        
         try:
-            session.execute(stmt)
+            for row in data:
+                where_clause = and_(*[getattr(table.c, col) == row[col] for col in unique_columns])
+
+                exists_stmt = select(table).where(where_clause)
+                existing_row = session.execute(exists_stmt).first()
+
+                if existing_row:
+                    update_values = {k: v for k, v in row.items() if k not in unique_columns}
+                    update_stmt = table.update().where(where_clause).values(update_values)
+                    session.execute(update_stmt)
+                else:
+                    insert_stmt = insert(table).values(row)
+                    session.execute(insert_stmt)
+
             session.commit()
             res = True
         except IntegrityError as e:
             session.rollback()
+            print(f"IntegrityError: {e}")
         except Exception as e:
             session.rollback()
-        
+            print(f"Exception: {e}")
+        finally:
+            session.close()
+
         return res
     
 

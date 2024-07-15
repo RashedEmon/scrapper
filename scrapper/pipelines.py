@@ -43,11 +43,11 @@ class MultiModelValidationPipeline:
             validated_item = Property(**item.model_dump())
 
             self.property_list.append(validated_item.model_dump())
-            if self.property_list >= self.buffer_size:
+            if len(self.property_list) >= self.buffer_size:
                 self.db.upsert_rows(
                     model=PropertyModel,
                     data=self.property_list,
-                    unique_columns=[PropertyModel.property_id.__str__()]
+                    unique_columns=['property_id']
                 )
         except ValidationError as e:
             raise DropItem(f"Invalid product: {e}")
@@ -57,11 +57,11 @@ class MultiModelValidationPipeline:
             validated_item = Review(**item.model_dump())
 
             self.review_list.append(validated_item.model_dump())
-            if self.review_list >= self.buffer_size:
+            if len(self.review_list) >= self.buffer_size:
                 self.db.upsert_rows(
                     model=ReviewsModel,
                     data=self.review_list,
-                    unique_columns=[ReviewsModel.review_id.__str__()]
+                    unique_columns=['review_id']
                 )
         except ValidationError as e:
             raise DropItem(f"Invalid review: {e}")
@@ -71,11 +71,11 @@ class MultiModelValidationPipeline:
             validated_item = Host(**item.model_dump())
             
             self.host_list.append(validated_item.model_dump())
-            if self.host_list >= self.buffer_size:
+            if len(self.host_list) >= self.buffer_size:
                 self.db.upsert_rows(
                     model=HostsModel,
                     data=self.host_list,
-                    unique_columns=[HostsModel.host_id.__str__()]
+                    unique_columns=['host_id']
                 )
         except ValidationError as e:
             raise DropItem(f"Invalid review: {e}")

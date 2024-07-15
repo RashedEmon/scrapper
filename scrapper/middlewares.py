@@ -77,8 +77,6 @@ class LogRequestMiddleware:
             
             if exist:
                 raise IgnoreRequest
-            
-        return None
 
     def process_response(self, request, response, spider):
         self.db.insert_or_update(

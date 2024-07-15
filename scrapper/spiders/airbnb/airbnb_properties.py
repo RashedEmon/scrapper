@@ -31,7 +31,7 @@ class AirbnbSpider(scrapy.Spider):
                 "scrapper.middlewares.RandomProxyMiddleware": 500,
             },
             # "DEPTH_PRIORITY": 1,
-            "CONCURRENT_REQUESTS": 8,
+            # "CONCURRENT_REQUESTS": 8,
             # 'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleLifoDiskQueue',
             # 'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.LifoMemoryQueue',
         }
@@ -128,8 +128,8 @@ class AirbnbSpider(scrapy.Spider):
             "about": jmespath.search(expression=host_about_selector, data=details_dict),
         }
 
-        valid_host = Host.model_construct(**host_items)
-        yield valid_host
+        yield Host.model_construct(**host_items)
+        
 
         # Property specific selector
         property_name_selector = "niobeMinimalClientData[0][1].data.presentation.stayProductDetailPage.sections.sections[?sectionComponentType=='TITLE_DEFAULT'].section.title | [0]"
@@ -172,8 +172,7 @@ class AirbnbSpider(scrapy.Spider):
             "city": location[-1] if len(location) >= 3 else None
         }
 
-        valid_property = Property.model_construct(**property_dict)
-        yield valid_property
+        yield Property.model_construct(**property_dict)
         
         review_list = self.get_reviews(
             property_id=property_id,

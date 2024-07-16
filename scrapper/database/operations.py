@@ -1,8 +1,12 @@
+from typing import Any, List
+
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import insert, select, and_
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.orm.session import Session
+from sqlalchemy import inspect
 
 from .connection import RedShiftManager
 
@@ -46,8 +50,10 @@ class CommonDBOperation:
                 session.commit()
                 return new_record, True
             except IntegrityError:
-                self.session.rollback()
+                session.rollback()
                 raise ValueError("Unable to insert new record due to integrity error")
+        finally:
+            self.check_and_expunge(session, model_class(**data_dict))
     
     def upsert_rows(self, model, data: list[dict], unique_columns: list[str]):
         res = False
@@ -73,12 +79,10 @@ class CommonDBOperation:
             res = True
         except IntegrityError as e:
             session.rollback()
-            print(f"IntegrityError: {e}")
         except Exception as e:
             session.rollback()
-            print(f"Exception: {e}")
         finally:
-            session.close()
+            self.check_and_expunge(session, [model(**row) for row in data])
 
         return res
     
@@ -95,3 +99,26 @@ class CommonDBOperation:
 
     def close(self):
         self.db_manager.close()
+
+    
+    def check_and_expunge(self, session: Session, item: List | Any):
+        
+        if not isinstance(item, list):
+            item = [item]
+
+        for obj in item:
+            try:
+                mapper = inspect(obj).mapper
+                
+                pk = tuple(mapper.primary_key_from_instance(obj))
+
+                if mapper.identity_key_from_primary_key(pk) in session.identity_map:
+                    print(f"Object {obj} found in identity map. Expunging...")
+                    session.expunge(obj)
+                    return True
+                else:
+                    print(f"Object {obj} not found in identity map.")
+                    return False
+                
+            except Exception as err:
+                print(err)

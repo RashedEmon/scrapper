@@ -9,8 +9,6 @@ from scrapper import config
 Base = declarative_base()
 
 class RedShiftManager:
-    
-    count = 0
 
     def __init__(self) -> None:
         query = {}
@@ -36,11 +34,6 @@ class RedShiftManager:
         Base.metadata.create_all(bind=self.engine, checkfirst=True)
     
     def get_session(self):
-        self.count+=1
-        if self.count >= 1000:
-            self.count = 0
-            return self.SessionFactory()
-
         return self.session
 
     def get_new_session(self):

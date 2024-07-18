@@ -33,7 +33,6 @@ for lib in requirements:
     command = ["pip", "install", lib]
     try:
         result = subprocess.run(command, capture_output=True, text=True, check=True)
-        print(result.stdout)
     except Exception as err:
         print(err)
 

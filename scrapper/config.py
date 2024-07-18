@@ -1,19 +1,31 @@
 import os
 import json
+import pkg_resources
 
 
-PROJECT_ROOT=os.path.dirname(os.path.abspath(__file__))
+def get_package_root():
+    package_root = pkg_resources.resource_filename(__name__, '')
+    return package_root
 
-CONFIG_PATH = os.path.join(PROJECT_ROOT, 'config.json')
+def load_json_resource(resource_name):
+    resource_package = __name__
+    json_data = pkg_resources.resource_string(resource_package, resource_name)
+    config = {}
+    try:
+        config = json.loads(json_data)
+    except Exception as err:
+        print("Error while reading config file")
+    return config
+    
 
-if not os.path.exists(CONFIG_PATH):
-    raise Exception("No configuration file found")
-
-with open(CONFIG_PATH, 'r') as f:
-    config = json.load(f)
-
+config = load_json_resource(resource_name='config.json')
 
 DEBUG = config.get("DEBUG", False)
+
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+
+if not DEBUG:
+    PROJECT_ROOT=get_package_root()
 
 REDSHIFT_HOST = config.get("REDSHIFT_HOST")
 REDSHIFT_PORT = config.get("REDSHIFT_PORT")

@@ -8,8 +8,8 @@ from datetime import datetime
 from scrapy import spiders
 
 from scrapper.database.operations import CommonDBOperation
-from scrapper.database.models import GolfCourse
-from scrapper.database.pydantic_models import PydanticGolfCourse
+from scrapper.database.golfnow.models import GolfCourse
+from scrapper.database.golfnow.pydantic_models import PydanticGolfCourse
 from scrapper.config import PROJECT_ROOT
 
 class CourseSpider(scrapy.Spider):

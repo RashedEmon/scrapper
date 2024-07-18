@@ -2,34 +2,14 @@ from urllib.parse import quote_plus
 import sqlalchemy as sa
 from sqlalchemy.engine.url import URL
 from sqlalchemy import orm as sa_orm
-
-from .models import Base
+from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
 
 from scrapper import config
 
-# class DatabaseManager:
-#     def __init__(self):
-#         self.engine = create_engine(
-#                 f'postgresql://{config.USERNAME}:{quote_plus(config.PASSWORD)}@'
-#                 f'{config.HOST}:{config.PORT}/{config.DB_NAME}'
-#             )
-#         self.Session = sessionmaker(bind=self.engine)
-#         Base.metadata.create_all(bind=self.engine, checkfirst=True)
-
-#     def get_session(self):
-#         """get postgres session"""
-
-#         return self.Session()
-
-#     @staticmethod
-#     def close_session(session):
-#         """close postgres session"""
-
-#         if session.is_active:
-#             session.close()
-
+Base = declarative_base()
 
 class RedShiftManager:
+
     def __init__(self) -> None:
         query = {}
         if config.DEBUG:
@@ -47,11 +27,18 @@ class RedShiftManager:
             query=query
         )
         self.engine = sa.create_engine(url)
-        Session = sa_orm.sessionmaker()
-        Session.configure(bind=self.engine)
-        self.session = Session()
+        self.SessionFactory = sa_orm.sessionmaker()
+        self.SessionFactory.configure(bind=self.engine)
+        self.session = self.SessionFactory()
         metadata = sa.MetaData(bind=self.session.bind)
         Base.metadata.create_all(bind=self.engine, checkfirst=True)
     
     def get_session(self):
         return self.session
+
+    def get_new_session(self):
+        return self.SessionFactory()
+    
+    def close(self):
+        if self.session:
+            self.session.close()

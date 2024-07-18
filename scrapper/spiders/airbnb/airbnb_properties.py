@@ -1,4 +1,5 @@
 import io
+import os
 import re
 import json
 import gzip
@@ -39,7 +40,9 @@ class AirbnbSpider(scrapy.Spider):
     @classmethod
     def update_settings(cls, settings):
         super().update_settings(settings)
-        settings.set(name="JOBDIR", value=f"{PROJECT_ROOT}/spiders_logs/{cls.name}_job_dir", priority="spider")
+        job_dir = f"{PROJECT_ROOT}/spiders_logs/{cls.name}_job_dir"
+        os.makedirs(job_dir)
+        settings.set(name="JOBDIR", value=job_dir, priority="spider")
 
     def __init__(self, name: str | None = None, **kwargs: spiders.Any):
         super().__init__(name, **kwargs)

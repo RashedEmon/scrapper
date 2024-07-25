@@ -1,6 +1,5 @@
-from sqlalchemy import Column, func, ForeignKey
+from sqlalchemy import Column, func, ForeignKey, VARCHAR, INTEGER, REAL, TIMESTAMP, FLOAT, SMALLINT, BOOLEAN, TEXT, JSON
 from sqlalchemy.schema import PrimaryKeyConstraint
-from sqlalchemy_redshift.dialect import SUPER, VARCHAR, INTEGER, REAL, TIMESTAMP, DOUBLE_PRECISION, SMALLINT, BOOLEAN
 from sqlalchemy.orm import relationship
 
 from scrapper.database.connection import Base
@@ -23,13 +22,13 @@ class GolfCourse(Base):
     course_rating = Column(REAL)
     architect = Column(VARCHAR(1000))
     year_built = Column(SMALLINT)
-    images = Column(VARCHAR(64000))
-    tee_details = Column(SUPER)
-    policies = Column(SUPER)
-    rental_services = Column(SUPER)
-    practice_instructions = Column(SUPER)
-    latitude = Column(DOUBLE_PRECISION)
-    longitude = Column(DOUBLE_PRECISION)
+    images = Column(TEXT)
+    tee_details = Column(JSON)
+    policies = Column(JSON)
+    rental_services = Column(JSON)
+    practice_instructions = Column(JSON)
+    latitude = Column(FLOAT)
+    longitude = Column(FLOAT)
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now(), nullable=False)
     created_at = Column(TIMESTAMP, server_default=func.now(), nullable=False)
 

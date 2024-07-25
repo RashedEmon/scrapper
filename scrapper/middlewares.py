@@ -59,7 +59,7 @@ class LogRequestMiddleware:
         middleware.crawler = crawler
         return middleware
 
-    def process_request(self, request, spider):
+    async def process_request(self, request, spider):
         if request.url not in ["https://www.airbnb.com/sitemap-master-index.xml.gz"]:
             query_filter = [
                 alchemy.and_(
@@ -67,8 +67,7 @@ class LogRequestMiddleware:
                         RequestTracker.status_code == 200,
                     )
             ]
-
-            exist = self.db.is_exist(
+            exist = await self.db.is_exist_async(
                 model_name=RequestTracker,
                 columns=[RequestTracker.url],
                 query_filter=query_filter
@@ -77,8 +76,8 @@ class LogRequestMiddleware:
             if exist:
                 raise IgnoreRequest
 
-    def process_response(self, request, response, spider):
-        self.db.insert_or_update(
+    async def process_response(self, request, response, spider):
+        await self.db.insert_or_update_async(
             model_class=RequestTracker,
             data_dict={
                 "url": response.url,
@@ -92,4 +91,5 @@ class LogRequestMiddleware:
         self.db = CommonDBOperation()
     
     def spider_closed(self, spider):
-        self.db.close()
+        # self.db.close()
+        pass

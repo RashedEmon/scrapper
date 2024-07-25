@@ -6,6 +6,8 @@
 
 # useful for handling different item types with a single interface
 import json
+import asyncio
+from typing import List
 
 from pydantic import ValidationError
 from scrapy.exceptions import DropItem
@@ -19,45 +21,48 @@ class MultiModelValidationPipeline:
 
     def open_spider(self, spider):
         self.buffer_size = 5
-        self.review_list = []
-        self.property_list = []
-        self.host_list = []
+        self.review_list:List[Review] = []
+        self.property_list:List[Property] = []
+        self.host_list:List[Host] = []
 
         self.db = CommonDBOperation()
+        asyncio.run(self.db.db_manager.create_tables())
+        
 
     def close_spider(self, spider):
         if len(self.property_list) > 0:
-            self.db.upsert_rows(
+            self.db.upsert_rows_async(
                 model=PropertyModel,
                 data=self.property_list,
                 unique_columns=['property_id']
             )
         if len(self.host_list) > 0:
-            self.db.upsert_rows(
+            self.db.upsert_rows_async(
                 model=HostsModel,
                 data=self.host_list,
                 unique_columns=['host_id']
             )
         if len(self.review_list) > 0:
-            self.db.upsert_rows(
+            self.db.upsert_rows_async(
                 model=ReviewsModel,
                 data=self.review_list,
                 unique_columns=['review_id']
             )
 
         self.db.close()
-
-    def process_item(self, item, spider):
+        
+    async def process_item(self, item, spider):
+        print(f"Sizes: Property: {len(self.property_list)}; Host: {len(self.host_list)}; Review: {len(self.review_list)}")
         if isinstance(item, Property):
-            return self.process_property(item)
+            await self.process_property(item)
         elif isinstance(item, Review):
-            return self.process_review(item)
+            await self.process_review(item)
         elif isinstance(item, Host):
-            return self.process_host(item)
+            await self.process_host(item)
         else:
             raise DropItem(f"Unknown item type: {type(item)}")
 
-    def process_property(self, item: Property):
+    async def process_property(self, item: Property):
         try:
             item.amenities = json.dumps({"amenities": item.amenities}) if item.amenities else None
             item.room_arrangement = json.dumps({"room_arrangement": item.room_arrangement}) if item.room_arrangement else None
@@ -70,33 +75,33 @@ class MultiModelValidationPipeline:
 
             self.property_list.append(validated_item.model_dump())
             if len(self.property_list) >= self.buffer_size:
-                self.db.upsert_rows(
+                res = await self.db.upsert_rows_async(
                     model=PropertyModel,
                     data=self.property_list,
                     unique_columns=['property_id']
                 )
                 self.property_list.clear()
-
+                print("successfully upserted properties", ",".join(map(lambda property: property.property_id, self.property_list))) if res else ""
         except ValidationError as e:
             raise DropItem(f"Invalid product: {e}")
 
-    def process_review(self, item: Review):
+    async def process_review(self, item: Review):
         try:
             validated_item = Review(**item.model_dump())
 
             self.review_list.append(validated_item.model_dump())
             if len(self.review_list) >= self.buffer_size:
-                self.db.upsert_rows(
+                res = await self.db.upsert_rows_async(
                     model=ReviewsModel,
                     data=self.review_list,
                     unique_columns=['review_id']
                 )
                 self.review_list.clear()
-
+                print("successfully upserted reviews", ",".join(map(lambda review: review.review_id, self.review_list))) if res else ""
         except ValidationError as e:
             raise DropItem(f"Invalid review: {e}")
     
-    def process_host(self, item: Host):
+    async def process_host(self, item: Host):
         try:
             item.host_details = json.dumps({"host_details": item.host_details}) if item.host_details else None
             
@@ -104,12 +109,8 @@ class MultiModelValidationPipeline:
             
             self.host_list.append(validated_item.model_dump())
             if len(self.host_list) >= self.buffer_size:
-                self.db.upsert_rows(
-                    model=HostsModel,
-                    data=self.host_list,
-                    unique_columns=['host_id']
-                )
+                res = await self.db.upsert_rows_async(model=HostsModel,data=self.host_list,unique_columns=['host_id'])
                 self.host_list.clear()
-
+                print("successfully upserted host", ",".join(map(lambda host: host.host_id, self.host_list))) if res else ""
         except ValidationError as e:
             raise DropItem(f"Invalid review: {e}")

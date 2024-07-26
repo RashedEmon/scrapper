@@ -15,12 +15,13 @@ class CommonDBOperation:
     
     async def insert_or_ignore_async(self, model_class, data_dict):
         async with self.db_manager.get_session() as session:
-            try:
-                instance = model_class(**data_dict)
-                session.add(instance)
-                await session.commit()
-            except IntegrityError:
-                await session.rollback()
+            async with session.begin():
+                try:
+                    instance = model_class(**data_dict)
+                    session.add(instance)
+                    await session.commit()
+                except IntegrityError:
+                    await session.rollback()
     
     async def insert_or_update_async(self, model_class, data_dict: dict):
         
@@ -55,31 +56,32 @@ class CommonDBOperation:
     async def upsert_rows_async(self, model, data: list[dict], unique_columns: list[str]):
         res = False
         async with self.db_manager.get_session() as session:
-            table = model.__table__
-            
-            try:
-                for row in data:
-                    where_clause = and_(*[getattr(table.c, col) == row[col] for col in unique_columns])
+            async with session.begin():
+                table = model.__table__
+                
+                try:
+                    for row in data:
+                        where_clause = and_(*[getattr(table.c, col) == row[col] for col in unique_columns])
 
-                    exists_stmt = select(table).where(where_clause)
-                    existing_row = await session.execute(exists_stmt)
+                        exists_stmt = select(table).where(where_clause)
+                        existing_row = await session.execute(exists_stmt)
 
-                    if existing_row:
-                        update_values = {k: v for k, v in row.items() if k not in unique_columns}
-                        update_stmt = table.update().where(where_clause).values(update_values)
-                        await session.execute(update_stmt)
-                    else:
-                        insert_stmt = insert(table).values(row)
-                        await session.execute(insert_stmt)
+                        if existing_row:
+                            update_values = {k: v for k, v in row.items() if k not in unique_columns}
+                            update_stmt = table.update().where(where_clause).values(update_values)
+                            await session.execute(update_stmt)
+                        else:
+                            insert_stmt = insert(table).values(row)
+                            await session.execute(insert_stmt)
 
-                await session.commit()
-                res = True
-            except IntegrityError as e:
-                await session.rollback()
-            except Exception as e:
-                await session.rollback()
+                    await session.commit()
+                    res = True
+                except IntegrityError as e:
+                    await session.rollback()
+                except Exception as e:
+                    await session.rollback()
 
-            return res
+        return res
 
 
     async def is_exist_async(self, model_name, query_filter: list, columns: list):

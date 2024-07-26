@@ -6,7 +6,7 @@ import json
 import gzip
 import time
 import base64
-from urllib.parse import urlencode, quote
+from urllib.parse import quote
 
 import jmespath
 import requests
@@ -32,20 +32,17 @@ class AirbnbSpider(scrapy.Spider):
             },
             "DOWNLOADER_MIDDLEWARES": {
                 "scrapper.middlewares.LogRequestMiddleware": 510,
+                'scrapy_user_agents.middlewares.RandomUserAgentMiddleware': 505,
                 "scrapper.middlewares.RandomProxyMiddleware": 500,
             },
-            # "DEPTH_PRIORITY": 1,
-            # "CONCURRENT_REQUESTS": 8,
-            # 'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleLifoDiskQueue',
-            # 'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.LifoMemoryQueue',
         }
 
     # @classmethod
     # def update_settings(cls, settings):
     #     super().update_settings(settings)
-    #     job_dir = f"{PROJECT_ROOT}/spiders_logs/{cls.name}_job_dir"
-    #     os.makedirs(job_dir)
-    #     settings.set(name="JOBDIR", value=job_dir, priority="spider")
+        # job_dir = f"{PROJECT_ROOT}/spiders_logs/{cls.name}_job_dir"
+        # os.makedirs(job_dir)
+        # settings.set(name="JOBDIR", value=job_dir, priority="spider")
 
     def __init__(self, name: str | None = None, **kwargs: spiders.Any):
         super().__init__(name, **kwargs)
@@ -217,6 +214,8 @@ class AirbnbSpider(scrapy.Spider):
         available_dates = jmespath.search(expression=available_date_selector, data=response.json())
         
         price = None
+        
+        valid_stay = None
 
         if available_dates:
             valid_stay = self.find_valid_stay(available_dates)
@@ -317,9 +316,9 @@ class AirbnbSpider(scrapy.Spider):
     def find_valid_stay(self, data):
         """
         Find fiest valid stay from the given list.
-        First it will find a valid(where check_in='True') check in date and extract min and max nights.
-        Then Find valid check out date depends on the extracted min nights, max nights and check_out='True'.
-        It find first valid check_in and check out date pair.
+        First it will find a valid(where check_in='True') check_in date and extract min and max nights.
+        Then Find valid check_out date depends on the extracted min nights, max nights and check_out='True'.
+        It find first valid check_in and check_out date pair.
         """
         for i, check_in_day in enumerate(data):
             if check_in_day['check_in']:
@@ -425,7 +424,7 @@ class AirbnbSpider(scrapy.Spider):
     def prepare_query_string(self, params: dict):
         _list = []
         for key, value in params.items():
-            if isinstance(value, dict):
+            if isinstance(value, (dict, list)):
                 _list.append(f"{key}={quote(json.dumps(value))}")
             else:
                 _list.append(f"{key}={value}")

@@ -9,6 +9,7 @@ import json
 import asyncio
 import queue
 import threading
+from datetime import datetime
 
 from pydantic import ValidationError
 from scrapy.exceptions import DropItem
@@ -95,19 +96,25 @@ class MultiModelValidationPipeline:
             item.facilities = json.dumps({"facilities": item.facilities}) if item.facilities else None
             item.policies = json.dumps({"policies": item.policies}) if item.policies else None
 
-            self.db_worker.queue.put(Property(**item.model_dump()))
-        except ValidationError as e:
+            property = Property(**item.model_dump())
+            self.db_worker.queue.put(property)
+        except Exception as e:
             raise DropItem(f"Invalid product: {e}")
 
     def process_review(self, item: Review):
         try:
-            self.db_worker.queue.put(Review(**item.model_dump()))
-        except ValidationError as e:
+            if item.review_date:
+                item.review_date = datetime.strptime(item.review_date, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
+            
+            review = Review(**item.model_dump())
+            self.db_worker.queue.put(review)
+        except Exception as e:
             raise DropItem(f"Invalid review: {e}")
     
     def process_host(self, item: Host):
         try:
             item.host_details = json.dumps({"host_details": item.host_details}) if item.host_details else None
-            self.db_worker.queue.put(Host(**item.model_dump()))
-        except ValidationError as e:
-            raise DropItem(f"Invalid review: {e}")
+            host = Host(**item.model_dump())
+            self.db_worker.queue.put(host)
+        except Exception as e:
+            raise DropItem(f"Invalid host: {e}")

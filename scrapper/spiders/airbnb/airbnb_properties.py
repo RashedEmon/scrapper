@@ -306,7 +306,7 @@ class AirbnbSpider(scrapy.Spider):
 
         yield Property.model_construct(**property_dict)
 
-        self.get_reviews(
+        yield from self.get_reviews(
             property_id=property_id,
             check_in=valid_stay.get("check_in") if valid_stay else datetime.now().strftime("%Y-%m-%d"),
             check_out=valid_stay.get("check_out") if valid_stay else (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d"),

@@ -1,5 +1,3 @@
-from urllib.parse import quote_plus
-import sqlalchemy as sa
 from sqlalchemy.engine.url import URL
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
@@ -33,10 +31,12 @@ class DatabaseManager:
     async def create_tables(self):
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+
     @property
     def get_session(self):
         return self.SessionFactory
-
-    def get_new_session(self):
-        return self.SessionFactory()
+    
+    async def dispose(self):
+        if self.engine:
+            await self.engine.dispose()
     

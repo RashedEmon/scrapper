@@ -60,7 +60,7 @@ class LogRequestMiddleware:
         return middleware
 
     async def process_request(self, request, spider):
-        if request.url not in ["https://www.airbnb.com/sitemap-master-index.xml.gz"]:
+        if request.url not in ["https://www.airbnb.com/sitemap-master-index.xml.gz"] and not str(request.url).startswith("https://www.airbnb.com/api"):
             query_filter = [
                 alchemy.and_(
                         RequestTracker.url == request.url,
@@ -77,19 +77,19 @@ class LogRequestMiddleware:
                 raise IgnoreRequest
 
     async def process_response(self, request, response, spider):
-        await self.db.insert_or_update_async(
-            model_class=RequestTracker,
-            data_dict={
-                "url": response.url,
-                "status_code": response.status,
-                "method": request.method
-            }
-        )
+        if not str(request.url).startswith("https://www.airbnb.com/api"):
+            await self.db.insert_or_update_async(
+                model_class=RequestTracker,
+                data_dict={
+                    "url": response.url,
+                    "status_code": response.status,
+                    "method": request.method
+                }
+            )
         return response
 
     def spider_opened(self, spider):
         self.db = CommonDBOperation()
     
-    def spider_closed(self, spider):
-        # self.db.close()
-        pass
+    async def spider_closed(self, spider):
+        await self.db.db_manager.dispose()

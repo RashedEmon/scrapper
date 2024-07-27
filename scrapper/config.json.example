@@ -1,10 +1,10 @@
 {
     "DEBUG": true,
-    "REDSHIFT_HOST": "",
-    "REDSHIFT_PORT": 5439,
-    "REDSHIFT_USER": "",
-    "REDSHIFT_PASSWORD": "",
-    "REDSHIFT_DB_NAME": "",
+    "POSTGRES_HOST": "",
+    "POSTGRES_PORT": 5439,
+    "POSTGRES_USER": "",
+    "POSTGRES_PASSWORD": "",
+    "POSTGRES_DB_NAME": "",
     "PROXY_LIST": [
     ]
   }

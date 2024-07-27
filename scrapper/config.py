@@ -3,6 +3,14 @@ import json
 import pkg_resources
 import subprocess
 
+def install_requirements(requirements: list):
+    for lib in requirements:
+        command = ["pip", "install", lib]
+        try:
+            result = subprocess.run(command, capture_output=True, text=True, check=True)
+        except Exception as err:
+            print(err)
+
 def get_package_root():
     package_root = pkg_resources.resource_filename(__name__, '')
     return package_root
@@ -17,7 +25,7 @@ def load_json_resource(resource_name):
         print("Error while reading config file")
     return config
 
-def load_requirements(resource_name):
+def load_requirements(resource_name) -> list:
     resource_package = __name__
     req_file = pkg_resources.resource_string(resource_package, resource_name)
     requirements = []
@@ -29,16 +37,14 @@ def load_requirements(resource_name):
 
 requirements = load_requirements(resource_name='requirements.txt')
 
-for lib in requirements:
-    command = ["pip", "install", lib]
-    try:
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
-    except Exception as err:
-        print(err)
+
 
 config = load_json_resource(resource_name='config.json')
 
 DEBUG = config.get("DEBUG", False)
+
+if not DEBUG:
+    install_requirements(requirements=requirements)
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 

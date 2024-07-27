@@ -7,14 +7,12 @@
 # useful for handling different item types with a single interface
 import json
 import asyncio
-from typing import List
 import queue
 import threading
 
 from pydantic import ValidationError
 from scrapy.exceptions import DropItem
 
-from scrapper.config import PROJECT_ROOT
 from scrapper.database.operations import CommonDBOperation
 from scrapper.database.airbnb.pydantic_models import Property, Review, Host
 from scrapper.database.airbnb.models import PropertyModel, ReviewsModel, HostsModel
@@ -59,8 +57,7 @@ class DatabaseWorker:
             await self.db.insert_or_ignore_async(model_class=HostsModel, data_dict=item.model_dump())
 
     async def _close_db(self):
-        if self.db.db_manager.engine:
-            await self.db.db_manager.engine.dispose()
+        await self.db.db_manager.dispose()
 
 
 class MultiModelValidationPipeline:

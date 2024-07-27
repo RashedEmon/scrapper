@@ -14,16 +14,16 @@ class RedShiftManager:
         query = {}
         if config.DEBUG:
             query = {
-                "ssl": "false",
+                "sslmode": "disable",
             }
         # Build the sqlalchemy URL
         url = URL.create(
-            drivername="redshift+redshift_connector",
-            host=config.REDSHIFT_HOST,
-            port=config.REDSHIFT_PORT,
-            database=config.REDSHIFT_DB_NAME, 
-            username=config.REDSHIFT_USER, 
-            password=config.REDSHIFT_PASSWORD,
+            drivername="postgresql",
+            host=config.POSTGRES_HOST,
+            port=config.POSTGRES_PORT,
+            database=config.POSTGRES_DB_NAME, 
+            username=config.POSTGRES_USER, 
+            password=config.POSTGRES_PASSWORD,
             query=query
         )
         self.engine = sa.create_engine(url)

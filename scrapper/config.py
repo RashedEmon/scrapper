@@ -3,6 +3,14 @@ import json
 import pkg_resources
 import subprocess
 
+def install_requirements(requirements: list):
+    for lib in requirements:
+        command = ["pip", "install", lib]
+        try:
+            result = subprocess.run(command, capture_output=True, text=True, check=True)
+        except Exception as err:
+            print(err)
+
 def get_package_root():
     package_root = pkg_resources.resource_filename(__name__, '')
     return package_root
@@ -17,7 +25,7 @@ def load_json_resource(resource_name):
         print("Error while reading config file")
     return config
 
-def load_requirements(resource_name):
+def load_requirements(resource_name) -> list:
     resource_package = __name__
     req_file = pkg_resources.resource_string(resource_package, resource_name)
     requirements = []
@@ -29,26 +37,24 @@ def load_requirements(resource_name):
 
 requirements = load_requirements(resource_name='requirements.txt')
 
-for lib in requirements:
-    command = ["pip", "install", lib]
-    try:
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
-    except Exception as err:
-        print(err)
+
 
 config = load_json_resource(resource_name='config.json')
 
 DEBUG = config.get("DEBUG", False)
+
+if not DEBUG:
+    install_requirements(requirements=requirements)
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 if not DEBUG:
     PROJECT_ROOT=get_package_root()
 
-REDSHIFT_HOST = config.get("REDSHIFT_HOST")
-REDSHIFT_PORT = config.get("REDSHIFT_PORT")
-REDSHIFT_USER = config.get("REDSHIFT_USER")
-REDSHIFT_PASSWORD = config.get("REDSHIFT_PASSWORD")
-REDSHIFT_DB_NAME = config.get("REDSHIFT_DB_NAME")
+POSTGRES_HOST = config.get("POSTGRES_HOST")
+POSTGRES_PORT = config.get("POSTGRES_PORT")
+POSTGRES_USER = config.get("POSTGRES_USER")
+POSTGRES_PASSWORD = config.get("POSTGRES_PASSWORD")
+POSTGRES_DB_NAME = config.get("POSTGRES_DB_NAME")
 
 PROXY_LIST = config.get("PROXY_LIST", [])

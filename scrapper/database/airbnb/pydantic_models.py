@@ -2,7 +2,7 @@ import dateutil.parser
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 from datetime import datetime
-import dateutil
+
 
 
 class Property(BaseModel):

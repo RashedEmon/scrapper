@@ -30,7 +30,6 @@ class RedShiftManager:
         self.SessionFactory = sa_orm.sessionmaker()
         self.SessionFactory.configure(bind=self.engine)
         self.session = self.SessionFactory()
-        metadata = sa.MetaData(bind=self.session.bind)
         Base.metadata.create_all(bind=self.engine, checkfirst=True)
     
     def get_session(self):

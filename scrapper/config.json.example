@@ -1,5 +1,5 @@
 {
-    "DEBUG": true,
+    "DEBUG": false,
     "POSTGRES_HOST": "",
     "POSTGRES_PORT": ,
     "POSTGRES_USER": "",
@@ -7,5 +7,5 @@
     "POSTGRES_DB_NAME": "",
     "PROXY_LIST": [
     ]
-  }
+}
   

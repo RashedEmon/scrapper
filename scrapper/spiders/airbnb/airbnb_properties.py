@@ -36,7 +36,9 @@ class AirbnbSpider(scrapy.Spider):
                 'scrapy_user_agents.middlewares.RandomUserAgentMiddleware': 505,
                 "scrapper.middlewares.RandomProxyMiddleware": 500,
             },
-            "TELNETCONSOLE_ENABLED": False
+            "TELNETCONSOLE_ENABLED": False,
+            "AUTOTHROTTLE_ENABLED": True,
+            "DOWNLOAD_DELAY": 0.5,
         }
 
     @classmethod

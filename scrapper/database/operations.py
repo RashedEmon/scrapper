@@ -1,3 +1,4 @@
+import logging
 from typing import Any, List
 
 from sqlalchemy.dialects.postgresql import insert
@@ -5,14 +6,30 @@ from sqlalchemy import insert, select, and_, func
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.exc import OperationalError, InternalError, InterfaceError, SQLAlchemyError
+
+from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_type
 
 from .connection import DatabaseManager
 
 
+class RetriesCompeleted(Exception):
+    pass
+
+def on_retry_completed(retry_state):
+    if retry_state.outcome.failed:
+        raise RetriesCompeleted("All retry attempts have been exhausted.")
+
 class CommonDBOperation:
     def __init__(self):
         self.db_manager = DatabaseManager()
-    
+
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_fixed(30), 
+        retry=retry_if_exception_type((OperationalError, InternalError, InterfaceError)),
+        retry_error_callback=on_retry_completed
+    )
     async def insert_or_ignore_async(self, model_class, data_dict):
         async with self.db_manager.get_session() as session:
             async with session.begin():
@@ -22,7 +39,13 @@ class CommonDBOperation:
                     await session.commit()
                 except IntegrityError:
                     await session.rollback()
-    
+
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_fixed(30),
+        retry=retry_if_exception_type((OperationalError, InternalError, InterfaceError)),
+        retry_error_callback=on_retry_completed
+    )
     async def insert_or_update_async(self, model_class, data_dict: dict):
         
         async with self.db_manager.get_session() as session:
@@ -53,6 +76,12 @@ class CommonDBOperation:
                     await session.rollback()
                     raise ValueError("Unable to insert new record due to integrity error")
     
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_fixed(30),
+        retry=retry_if_exception_type((OperationalError, InternalError, InterfaceError)),
+        retry_error_callback=on_retry_completed
+    )
     async def upsert_rows_async(self, model, data: list[dict], unique_columns: list[str]):
         res = False
         async with self.db_manager.get_session() as session:
@@ -83,17 +112,19 @@ class CommonDBOperation:
 
         return res
 
-
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_fixed(30),
+        retry=retry_if_exception_type((OperationalError, InternalError, InterfaceError)),
+        retry_error_callback=on_retry_completed
+    )
     async def is_exist_async(self, model_name, query_filter: list, columns: list):
         async with self.db_manager.get_session() as session:
-            try:
-                if columns:
-                    result = await session.execute(select(func.count()).select_from(select(*columns).filter(*query_filter).subquery()))
-                    exists = result.scalar() > 0
-                    return True if exists else False
-                else:
-                    result = await session.execute(select(func.count()).select_from(select(model_name).filter(*query_filter).subquery()))
-                    exists = result.scalar() > 0
-                    return True if exists else False
-            except Exception as error:
-                print(f"Error => get_data_from_db: {error}")
+            if columns:
+                result = await session.execute(select(func.count()).select_from(select(*columns).filter(*query_filter).subquery()))
+                exists = result.scalar() > 0
+                return True if exists else False
+            else:
+                result = await session.execute(select(func.count()).select_from(select(model_name).filter(*query_filter).subquery()))
+                exists = result.scalar() > 0
+                return True if exists else False

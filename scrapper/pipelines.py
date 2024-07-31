@@ -12,9 +12,9 @@ import threading
 from datetime import datetime
 
 from pydantic import ValidationError
-from scrapy.exceptions import DropItem
+from scrapy.exceptions import DropItem, CloseSpider
 
-from scrapper.database.operations import CommonDBOperation
+from scrapper.database.operations import CommonDBOperation, RetriesCompeleted
 from scrapper.database.airbnb.pydantic_models import Property, Review, Host
 from scrapper.database.airbnb.models import PropertyModel, ReviewsModel, HostsModel
 
@@ -22,6 +22,7 @@ class DatabaseWorker:
     def __init__(self):
         self.queue = queue.Queue()
         self.running = False
+        self.error_event = threading.Event()
 
     def start(self):
         self.running = True
@@ -50,12 +51,17 @@ class DatabaseWorker:
         await self.db.db_manager.create_tables()
 
     async def _process_item(self, item):
-        if isinstance(item, Property):
-            await self.db.insert_or_ignore_async(model_class=PropertyModel, data_dict=item.model_dump())
-        elif isinstance(item, Review):
-            await self.db.insert_or_ignore_async(model_class=ReviewsModel, data_dict=item.model_dump())
-        elif isinstance(item, Host):
-            await self.db.insert_or_ignore_async(model_class=HostsModel, data_dict=item.model_dump())
+        try:
+            if isinstance(item, Property):
+                await self.db.insert_or_ignore_async(model_class=PropertyModel, data_dict=item.model_dump())
+            elif isinstance(item, Review):
+                await self.db.insert_or_ignore_async(model_class=ReviewsModel, data_dict=item.model_dump())
+            elif isinstance(item, Host):
+                await self.db.insert_or_ignore_async(model_class=HostsModel, data_dict=item.model_dump())
+        except RetriesCompeleted as err:
+            self.error_event.set()
+        except Exception as err:
+            print(f"###############################{err}############################")
 
     async def _close_db(self):
         await self.db.db_manager.dispose()
@@ -85,6 +91,9 @@ class MultiModelValidationPipeline:
             self.process_host(item)
         else:
             raise DropItem(f"Unknown item type: {type(item)}")
+        
+        if self.db_worker.error_event.is_set():
+            raise CloseSpider("Close the spider due to database disconnection...")
 
     
     def process_property(self, item: Property):

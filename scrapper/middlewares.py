@@ -67,32 +67,29 @@ class LogRequestMiddleware:
                         RequestTracker.status_code == 200,
                     )
             ]
-            try:
-                exist = await self.db.is_exist_async(
-                    model_name=RequestTracker,
-                    columns=[RequestTracker.url],
-                    query_filter=query_filter
-                )
-            except RetriesCompeleted as err:
-                raise CloseSpider(reason="database disconnected")
+
+            exist = await self.db.is_exist_async(
+                model_name=RequestTracker,
+                columns=[RequestTracker.url],
+                query_filter=query_filter
+            )
                 
             if exist:
                 raise IgnoreRequest
 
     async def process_response(self, request, response, spider):
         if not str(request.url).startswith("https://www.airbnb.com/api"):
-            try:
-                await self.db.insert_or_update_async(
-                    model_class=RequestTracker,
-                    data_dict={
-                        "url": response.url,
-                        "status_code": response.status,
-                        "method": request.method
-                    }
-                )
-            except RetriesCompeleted as err:
-                raise CloseSpider(reason="database disconnected")
-            
+            referer = request.headers.get('Referer', None)
+            await self.db.insert_or_update_async(
+                model_class=RequestTracker,
+                data_dict={
+                    "url": response.url,
+                    "status_code": response.status,
+                    "method": request.method,
+                    "referer": referer.decode() if referer else None
+                }
+            )
+
         return response
 
     def spider_opened(self, spider):

@@ -72,6 +72,7 @@ class RequestTracker(Base):
     __tablename__ = 'request_tracker'
 
     url                = Column(VARCHAR(5000), nullable=False, primary_key=True)
+    referer            = Column(VARCHAR(5000))
     status_code        = Column(INTEGER)
     method             = Column(VARCHAR(50))
     updated_at         = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now(), nullable=False)

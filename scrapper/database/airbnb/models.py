@@ -86,3 +86,14 @@ class PropertyUrls(Base):
     referer            = Column(VARCHAR(1000))
     updated_at         = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now(), nullable=False)
     created_at         = Column(TIMESTAMP, server_default=func.now(), nullable=False)
+
+
+class AirbnbUrls(Base):
+
+    __tablename__ = 'airbnb_urls'
+
+    url                = Column(VARCHAR(5000), nullable=False, primary_key=True)
+    referer            = Column(VARCHAR(1000))
+    is_visited         = Column(BOOLEAN, default=False, nullable=False)
+    updated_at         = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_at         = Column(TIMESTAMP, server_default=func.now(), nullable=False)

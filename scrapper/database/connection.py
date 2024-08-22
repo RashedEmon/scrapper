@@ -10,11 +10,6 @@ Base = declarative_base()
 class DatabaseManager:
 
     def __init__(self) -> None:
-        query = {}
-        if config.DEBUG:
-            query = {
-                "ssl": "disable",
-            }
         # Build the sqlalchemy URL
         url = URL.create(
             drivername="postgresql+asyncpg",
@@ -23,15 +18,19 @@ class DatabaseManager:
             database=config.POSTGRES_DB_NAME, 
             username=config.POSTGRES_USER, 
             password=config.POSTGRES_PASSWORD,
-            query=query
         )
         self.engine = create_async_engine(url)
         self.SessionFactory = sessionmaker(bind=self.engine, class_=AsyncSession, expire_on_commit=False)
 
     async def create_tables(self):
-        async with self.engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-
+        try:
+            async with self.engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            return True
+        except Exception as err:
+            print("error occured in DatabaseManager.create_tables", err)
+        return False
+    
     @property
     def get_session(self):
         return self.SessionFactory

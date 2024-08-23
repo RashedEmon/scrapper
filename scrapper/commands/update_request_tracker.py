@@ -80,7 +80,7 @@ class RunQuery(CronBase):
         
         limit = 500
         offset = 0
-        for i in range(0, total_urls, limit):
+        for _ in tqdm.tqdm(range(0, total_urls, limit)):
             res = await self.airbnb_db_ops.get_missing_urls(
                 property_urls=PropertyUrls, 
                 request_tracker=RequestTracker,
@@ -90,5 +90,5 @@ class RunQuery(CronBase):
             
             offset += limit
             result = await self.airbnb_db_ops.bulk_insert_data(Model=AirbnbUrls, data_list=res)
-            # await asyncio.sleep(2)
+            await asyncio.sleep(0.5)
             print(result, "inserted")

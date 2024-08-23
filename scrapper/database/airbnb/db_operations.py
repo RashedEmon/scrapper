@@ -46,7 +46,6 @@ class DBOperations:
                     if offset:
                         query = query.offset(offset)
 
-                    print(str(query))
                     result = await session.execute(query)
                     column_names = result.keys()
                     for row in result.fetchall():

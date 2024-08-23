@@ -6,6 +6,7 @@ import json
 import gzip
 import time
 import base64
+import asyncio
 from urllib.parse import quote
 
 import jmespath
@@ -13,6 +14,11 @@ import requests
 from lxml import etree
 from datetime import datetime, timedelta
 from typing import Dict, List
+from twisted.internet import reactor, threads
+from twisted.internet.defer import ensureDeferred, inlineCallbacks
+from scrapy.utils.reactor import install_reactor, is_asyncio_reactor_installed
+
+
 
 from scrapy.exceptions import CloseSpider
 import scrapy
@@ -20,6 +26,8 @@ from scrapy import spiders
 
 from scrapper.config import PROJECT_ROOT
 from scrapper.database.airbnb.pydantic_models import Property, Review, Host
+from scrapper.database.airbnb.models import AirbnbUrls
+from scrapper.database.airbnb.db_operations import DBOperations
 
 
 class AirbnbSpider(scrapy.Spider):
@@ -28,6 +36,7 @@ class AirbnbSpider(scrapy.Spider):
     start_urls = ["https://www.airbnb.com/sitemap-master-index.xml.gz"]
 
     custom_settings = {
+            "TWISTED_REACTOR": "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
             "ITEM_PIPELINES": {
                 "scrapper.pipelines.MultiModelValidationPipeline": 300,
             },
@@ -55,38 +64,29 @@ class AirbnbSpider(scrapy.Spider):
 
     def __init__(self, name: str | None = None, **kwargs: spiders.Any):
         super().__init__(name, **kwargs)
+        self.airbnb_db_ops = DBOperations()
     
-    def parse(self, response: spiders.Response, **kwargs: spiders.Any) -> spiders.Any:
+    async def fetch_data_from_db(self):
+        return await self.airbnb_db_ops.get_visiting_url()
 
-        with gzip.GzipFile(fileobj=io.BytesIO(response.body)) as f:
-            sitemap_content = f.read()
-        
-        root = etree.fromstring(sitemap_content)
-        namespace = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
+    async def update_row(self, url, data):
+        is_updated, msg = await self.airbnb_db_ops.update_row(url=url, data=data)
+        return is_updated
 
-        pattern = re.compile(r'https://www\.airbnb\.com/sitemap-homes-urls-(\d+)\.xml\.gz')
+    async def parse(self, response: spiders.Response, **kwargs: spiders.Any) -> spiders.Any:
+        total_url = 28210
+        total_url = 10
+        for _ in range(total_url):
+            url_referer_tuple = await self.fetch_data_from_db()
+            if url_referer_tuple == None:
+                break
+            url, referer = url_referer_tuple
+            
+            await self.update_row(url=url, data={"is_taken": True})
+            yield scrapy.Request(url=url, callback=self.parse_property_details, headers={'Referer': referer})
 
-        for sitemap in root.findall('ns:sitemap', namespace):
-            loc = sitemap.find('ns:loc', namespace)
-            if loc is not None and re.match(pattern, loc.text):
-                loc.text
-                yield scrapy.Request(url=loc.text, callback=self.pase_home_urls)
-    
-
-    def pase_home_urls(self, response):
-        with gzip.GzipFile(fileobj=io.BytesIO(response.body)) as f:
-            sitemap_content = f.read()
-
-        root = etree.fromstring(sitemap_content)
-        namespace = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
-
-        urls = []
-        for loc in root.findall('.//ns:loc', namespace):
-            urls.append(loc.text)
-            yield scrapy.Request(url=loc.text, callback=self.parse_property_details)
-    
     def parse_property_details(self, response):
-    
+
         airbnb_x_api_key = self.get_airbnb_api_key(response)
 
         property_id = response.url.split('/')[-1]
@@ -206,8 +206,7 @@ class AirbnbSpider(scrapy.Spider):
                 })
                 offset += limit
 
-    
-    def parse_reviews(self, response, property_id):
+    async def parse_reviews(self, response, property_id):
         reviews_dict_list = jmespath.search(
             expression='data.presentation.stayProductDetailPage.reviews.reviews[].{"review_id": id, "comments": comments, "reviewer_name": reviewer.firstName, "profile_image_url": reviewer.pictureUrl, "review_date": createdAt, "reviewer_location": localizedReviewerLocation, "rating": rating, "language": language}',
             data=response.json()
@@ -216,8 +215,12 @@ class AirbnbSpider(scrapy.Spider):
         for review in reviews_dict_list:
             review.update(property_id=property_id)
             yield Review.model_construct(**review)
+        
+        await self.update_row(url=f"https://www.airbnb.com/rooms/{property_id}", data={"is_taken": False, "is_visited": True})
 
-
+    def run_async(self, coro):
+        return asyncio.get_event_loop().run_until_complete(coro)
+    
     def available_date_extractor(self, response, airbnb_x_api_key, property_id, details_dict):
         available_date_selector = 'data.merlin.pdpAvailabilityCalendar.calendarMonths[].days[?availableForCheckin == `true` || availableForCheckout==`true`].{"date": calendarDate, "available": available, "check_in": availableForCheckin, "check_out":availableForCheckout, "max_night": maxNights, "min_night": minNights} | []'
         available_dates = jmespath.search(expression=available_date_selector, data=response.json())

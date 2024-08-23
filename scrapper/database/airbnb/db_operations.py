@@ -1,11 +1,11 @@
-from sqlalchemy import or_
+from sqlalchemy import or_, and_
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import select, func, String
+from sqlalchemy import select, func, String, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 
 from scrapper.database.connection import DatabaseManager
-from scrapper.database.airbnb.models import RequestTracker, PropertyUrls
+from scrapper.database.airbnb.models import RequestTracker, PropertyUrls, AirbnbUrls
 
 class DBOperations:
     def __init__(self):
@@ -111,3 +111,43 @@ class DBOperations:
                     print("error occured in bulk_insert_data=>", err)
 
         return total_inserted
+
+
+    async def get_visiting_url(self):
+        try:
+            async with self.db_manager.get_session() as session:
+                async with session.begin():
+                    query = select(AirbnbUrls.url, AirbnbUrls.referer).where(    
+                        (AirbnbUrls.is_taken == False) & (AirbnbUrls.is_visited == False)
+                    ).limit(1)
+                    result = await session.execute(query)
+                    result = result.fetchall()
+                    if len(result):
+                        return result[0]
+                    else:
+                        return None, None
+        except Exception as err:
+            print(err)
+
+    async def update_row(self, url, data={"is_taken": False}):
+        try:
+            async with self.db_manager.get_session() as session:
+                async with session.begin():
+                    query = update(AirbnbUrls).where(AirbnbUrls.url == url).values(**data)
+                    print(str(query))
+                    result = await session.execute(query)
+                    # Check if any rows were affected by the update
+                    rows_affected = result.rowcount
+                    if rows_affected > 0:
+                        await session.commit()
+                        return True, f"Successfully updated {rows_affected} row(s)"
+                    else:
+                        await session.rollback()
+                        return False, "No rows were updated. URL might not exist."
+                    
+        except SQLAlchemyError as e:
+            print(f"Database error occurred: {e}")
+            return False, f"Database error: {str(e)}"
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+            return False, f"Unexpected error: {str(e)}"

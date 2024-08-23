@@ -75,7 +75,6 @@ class AirbnbSpider(scrapy.Spider):
 
     async def parse(self, response: spiders.Response, **kwargs: spiders.Any) -> spiders.Any:
         total_url = 28210
-        total_url = 10
         for _ in range(total_url):
             url_referer_tuple = await self.fetch_data_from_db()
             if url_referer_tuple == None:

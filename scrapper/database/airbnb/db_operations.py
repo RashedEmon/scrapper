@@ -61,7 +61,7 @@ class DBOperations:
         try:
             async with self.db_manager.get_session() as session:
                 async with session.begin():
-                    query = select(func.count(func.distinct(PropertyUrls.url))).outerjoin(
+                    query = select(func.count(PropertyUrls.url)).outerjoin(
                         RequestTracker, 
                         PropertyUrls.url == RequestTracker.url
                     ).where(

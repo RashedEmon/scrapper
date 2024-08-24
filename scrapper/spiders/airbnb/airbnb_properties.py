@@ -74,14 +74,16 @@ class AirbnbSpider(scrapy.Spider):
         return is_updated
 
     async def parse(self, response: spiders.Response, **kwargs: spiders.Any) -> spiders.Any:
-        total_url = 28210
-        for _ in range(total_url):
+        concurrent_requests = self.settings.getint('CONCURRENT_REQUESTS')
+        urls = []
+        async with asyncio.Semaphore(value=concurrent_requests):
             url_referer_tuple = await self.fetch_data_from_db()
-            if url_referer_tuple == None:
-                break
             url, referer = url_referer_tuple
             
             await self.update_row(url=url, data={"is_taken": True})
+            urls.append((url, referer))
+
+        for url, referer in urls:
             yield scrapy.Request(url=url, callback=self.parse_property_details, headers={'Referer': referer})
 
     def parse_property_details(self, response):

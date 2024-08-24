@@ -14,6 +14,7 @@ from lxml import etree
 from datetime import datetime, timedelta
 from typing import Dict, List
 
+from scrapy.exceptions import CloseSpider
 import scrapy
 from scrapy import spiders
 
@@ -35,14 +36,22 @@ class AirbnbSpider(scrapy.Spider):
                 'scrapy_user_agents.middlewares.RandomUserAgentMiddleware': 505,
                 # "scrapper.middlewares.RandomProxyMiddleware": 500,
             },
+            "TELNETCONSOLE_ENABLED": False,
+            "AUTOTHROTTLE_ENABLED": True,
+            "DOWNLOAD_DELAY": 0.5,
         }
 
     @classmethod
     def update_settings(cls, settings):
         super().update_settings(settings)
         job_dir = f"{PROJECT_ROOT}/spiders_logs/{cls.name}_job_dir"
-        os.makedirs(job_dir)
-        settings.set(name="JOBDIR", value=job_dir, priority="spider")
+        try:
+            os.makedirs(job_dir, exist_ok=True)
+            print("Job directory created successfully: path=>", job_dir)
+            settings.set(name="JOBDIR", value=job_dir, priority="spider")
+        except Exception as err:
+            print("Directory creation failed: path=>", job_dir,"err:", err)
+            raise CloseSpider(reason="Directory creation failed")
 
     def __init__(self, name: str | None = None, **kwargs: spiders.Any):
         super().__init__(name, **kwargs)

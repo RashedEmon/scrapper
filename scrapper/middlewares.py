@@ -9,9 +9,9 @@ import random
 import sqlalchemy as alchemy
 from scrapy import signals
 from scrapy.utils.project import get_project_settings
-from scrapy.exceptions import IgnoreRequest
+from scrapy.exceptions import IgnoreRequest, CloseSpider
 
-from scrapper.database.operations import CommonDBOperation
+from scrapper.database.operations import CommonDBOperation, RetriesCompeleted
 from scrapper.database.airbnb.models import RequestTracker
 
 class LogRequestHeadersMiddleware:
@@ -67,25 +67,29 @@ class LogRequestMiddleware:
                         RequestTracker.status_code == 200,
                     )
             ]
+
             exist = await self.db.is_exist_async(
                 model_name=RequestTracker,
                 columns=[RequestTracker.url],
                 query_filter=query_filter
             )
-            
+                
             if exist:
                 raise IgnoreRequest
 
     async def process_response(self, request, response, spider):
         if not str(request.url).startswith("https://www.airbnb.com/api"):
+            referer = request.headers.get('Referer', None)
             await self.db.insert_or_update_async(
                 model_class=RequestTracker,
                 data_dict={
                     "url": response.url,
                     "status_code": response.status,
-                    "method": request.method
+                    "method": request.method,
+                    "referer": referer.decode() if referer else None
                 }
             )
+
         return response
 
     def spider_opened(self, spider):

@@ -33,16 +33,16 @@ class AirbnbSpider(scrapy.Spider):
             "DOWNLOADER_MIDDLEWARES": {
                 "scrapper.middlewares.LogRequestMiddleware": 510,
                 'scrapy_user_agents.middlewares.RandomUserAgentMiddleware': 505,
-                "scrapper.middlewares.RandomProxyMiddleware": 500,
+                # "scrapper.middlewares.RandomProxyMiddleware": 500,
             },
         }
 
-    # @classmethod
-    # def update_settings(cls, settings):
-    #     super().update_settings(settings)
-        # job_dir = f"{PROJECT_ROOT}/spiders_logs/{cls.name}_job_dir"
-        # os.makedirs(job_dir)
-        # settings.set(name="JOBDIR", value=job_dir, priority="spider")
+    @classmethod
+    def update_settings(cls, settings):
+        super().update_settings(settings)
+        job_dir = f"{PROJECT_ROOT}/spiders_logs/{cls.name}_job_dir"
+        os.makedirs(job_dir)
+        settings.set(name="JOBDIR", value=job_dir, priority="spider")
 
     def __init__(self, name: str | None = None, **kwargs: spiders.Any):
         super().__init__(name, **kwargs)

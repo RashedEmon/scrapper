@@ -12,7 +12,7 @@ def to_pascal_case(snake_str):
 
 def main():
     parser = argparse.ArgumentParser(description="Process some arguments.")
-    parser.add_argument('--command_name', type=str, required=True, help='Name of the command job')
+    parser.add_argument('--command_name', type=str, required=True, help='Name of the job')
 
     args = parser.parse_args()
 
@@ -23,7 +23,7 @@ def main():
         if command_name in commands:
             module_name = f"{commands[command_name]}"
         else:
-            raise ImportError
+            raise ModuleNotFoundError
 
         module = importlib.import_module(module_name)
         

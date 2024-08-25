@@ -74,17 +74,25 @@ class AirbnbSpider(scrapy.Spider):
         return is_updated
 
     async def parse(self, response: spiders.Response, **kwargs: spiders.Any) -> spiders.Any:
-        concurrent_requests = self.settings.getint('CONCURRENT_REQUESTS')
-        urls = []
-        async with asyncio.Semaphore(value=concurrent_requests):
+        total_urls = 28210
+        for _ in range(total_urls):
             url_referer_tuple = await self.fetch_data_from_db()
-            url, referer = url_referer_tuple
+
+            if url_referer_tuple == (None, None):
+                break
+
+            if url_referer_tuple:
+                url, referer = url_referer_tuple
+            else:
+                continue
             
             await self.update_row(url=url, data={"is_taken": True})
-            urls.append((url, referer))
 
-        for url, referer in urls:
-            yield scrapy.Request(url=url, callback=self.parse_property_details, headers={'Referer': referer})
+            yield scrapy.Request(url=url, callback=self.parse_property_details, headers={'Referer': referer}, errback=self.error_handler)
+
+    async def error_handler(self, failure):
+        url = failure.request.url
+        await self.update_row(url=url, data={"is_taken": False, "is_visited": True})
 
     def parse_property_details(self, response):
 
@@ -206,6 +214,8 @@ class AirbnbSpider(scrapy.Spider):
                     "property_id": property_id
                 })
                 offset += limit
+        else:
+            asyncio.ensure_future(self.update_row(url=f"https://www.airbnb.com/rooms/{property_id}", data={"is_taken": False, "is_visited": True}))
 
     async def parse_reviews(self, response, property_id):
         reviews_dict_list = jmespath.search(

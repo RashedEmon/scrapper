@@ -28,17 +28,18 @@ class PopulateMissingUrls(CronBase):
         self.airbnb_db_ops = DBOperations()
 
     async def init(self):
-        # res = await self.common_db_ops.db_manager.create_tables()
-        # if res:
-        #     print("table created successfully")
-        # else:
-        #     print("table creation failed")
-        #     return
+        res = await self.common_db_ops.db_manager.create_tables()
+        if res:
+            print("table created successfully")
+        else:
+            print("table creation failed")
+            return
         
-        # result = await self.airbnb_db_ops.get_incomplete_xmls_from_request_tracker()
-        # if result is not None:
-        #     print("got incomplete xmls successfully")
-        for url in tqdm.tqdm(["https://airbnb.com/sitemap-homes-urls-52.xml.gz"]):
+        result = await self.airbnb_db_ops.get_incomplete_xmls_from_request_tracker()
+        if result is not None:
+            print("got incomplete xmls successfully")
+
+        for url, _ in tqdm.tqdm(result):
             if url not in ("https://www.airbnb.com/sitemap-master-index.xml.gz", None):
                 await self.download_xml(url)
 
